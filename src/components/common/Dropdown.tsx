@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { HTMLAttributes, useState } from 'react';
 
 interface Option {
   label: string;
   value: string;
 }
 
-interface DropdownProps {
+interface DropdownProps extends HTMLAttributes<HTMLDivElement> {
   placeholder: string;
   options: Option[];
   onOptionSelect?: (value: string) => void;
