@@ -24,18 +24,14 @@ export default function TextField({
           {label}
         </label>
       )}
-      <div className="relative w-full">
-        {icon && (
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            {icon}
-          </div>
-        )}
+      <div
+        className={`flex items-center w-full border rounded-md px-3 py-2 focus-within:ring-1 focus-within:ring-primary-500 focus-within:border-primary-500 ${className}`}
+      >
+        {icon && <div className="mr-2 text-gray-400">{icon}</div>}
         <input
           id={id}
           ref={ref}
-          className={`w-full border rounded-md px-3 py-2 ${
-            icon ? 'pl-10' : ''
-          } text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 ${className}`}
+          className="flex-1 bg-transparent outline-none text-sm text-gray-900 placeholder-gray-400"
           {...props}
         />
       </div>
