@@ -33,7 +33,9 @@ export default function TextField({
         <input
           id={id}
           ref={ref}
-          className={`w-full border rounded-md px-3 py-2 pl-10 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 ${className}`}
+          className={`w-full border rounded-md px-3 py-2 ${
+            icon ? 'pl-10' : ''
+          } text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 ${className}`}
           {...props}
         />
       </div>
