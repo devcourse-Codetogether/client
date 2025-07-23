@@ -1,4 +1,5 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import ModalTestPage from './pages/ModalTestPage';
 
 const ColorTest = () => (
   <div className="p-4 space-y-4">
@@ -27,6 +28,10 @@ const router = createBrowserRouter([
   {
     path: '/',
     element: <ColorTest />, // 색상 테스트 컴포넌트로 교체
+  },
+  {
+    path: '/modal-test',
+    element: <ModalTestPage />, // 모달창 테스트 페이지
   },
 ]);
 
