@@ -1,4 +1,5 @@
 import React, { ReactNode } from 'react';
+import Button from './Button';
 
 type ModalProps = {
   isOpen: boolean;
@@ -49,18 +50,12 @@ const Modal = ({
 
         {/* Footer */}
         <div className="flex justify-end gap-2">
-          <button
+          <Button
             onClick={onCancel || onClose}
-            className="px-4 py-2 rounded border border-gray-300 text-sm"
-          >
-            {cancelText}
-          </button>
-          <button
-            onClick={onConfirm}
-            className="px-4 py-2 rounded bg-blue-500 text-white text-sm"
-          >
-            {confirmText}
-          </button>
+            text={cancelText}
+            color="light"
+          />
+          <Button onClick={onConfirm} text={confirmText} color="primary" />
         </div>
       </div>
     </div>
