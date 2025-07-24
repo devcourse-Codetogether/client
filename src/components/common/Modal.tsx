@@ -1,5 +1,6 @@
 import React, { ReactNode } from 'react';
 import Button from './Button';
+import { XMarkIcon } from '@heroicons/react/24/solid';
 
 type ModalProps = {
   isOpen: boolean;
@@ -38,10 +39,10 @@ const Modal = ({
           <h2 className="text-base font-semibold">{title}</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-black text-xl font-bold"
+            className="text-gray-400 hover:text-black text-xl font-bold cursor-pointer"
             aria-label="Close"
           >
-            ×
+            <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
 
