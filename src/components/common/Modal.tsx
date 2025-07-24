@@ -1,4 +1,6 @@
 import React, { ReactNode } from 'react';
+import Button from './Button';
+import { XMarkIcon } from '@heroicons/react/24/solid';
 
 type ModalProps = {
   isOpen: boolean;
@@ -37,10 +39,10 @@ const Modal = ({
           <h2 className="text-base font-semibold">{title}</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-black text-xl font-bold"
+            className="text-gray-400 hover:text-black text-xl font-bold cursor-pointer"
             aria-label="Close"
           >
-            ×
+            <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
 
@@ -49,18 +51,12 @@ const Modal = ({
 
         {/* Footer */}
         <div className="flex justify-end gap-2">
-          <button
+          <Button
             onClick={onCancel || onClose}
-            className="px-4 py-2 rounded border border-gray-300 text-sm"
-          >
-            {cancelText}
-          </button>
-          <button
-            onClick={onConfirm}
-            className="px-4 py-2 rounded bg-blue-500 text-white text-sm"
-          >
-            {confirmText}
-          </button>
+            text={cancelText}
+            color="light"
+          />
+          <Button onClick={onConfirm} text={confirmText} color="primary" />
         </div>
       </div>
     </div>

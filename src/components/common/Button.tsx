@@ -39,7 +39,7 @@ const Button: React.FC<ButtonProps> = ({
   return (
     <button
       type={type}
-      className={`inline-flex items-center gap-2 px-5 py-2 rounded-lg font-medium transition-colors focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed ${colorClassMap[color]} ${className}`.trim()}
+      className={`inline-flex items-center gap-2 px-5 py-2 rounded-sm cursor-pointer font-medium transition-colors focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed ${colorClassMap[color]} ${className}`.trim()}
       onClick={onClick}
       disabled={disabled}
     >
