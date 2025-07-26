@@ -1,6 +1,7 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import ModalTestPage from './pages/ModalTestPage';
 import LoginPage from './pages/LoginPage';
+import MyPage from './pages/MyPage';
 
 const ColorTest = () => (
   <div className="p-4 space-y-4">
@@ -37,6 +38,10 @@ const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />,
+  },
+  {
+    path: '/mypage',
+    element: <MyPage />,
   },
 ]);
 
