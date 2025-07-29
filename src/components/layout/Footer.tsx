@@ -42,7 +42,7 @@ const Footer: React.FC = () => {
             <ul className="space-y-2">
               <li>
                 <Link
-                  to="/create-room"
+                  to="/"
                   className="text-gray-600 hover:text-gray-900 transition-colors"
                 >
                   방 만들기
@@ -50,7 +50,7 @@ const Footer: React.FC = () => {
               </li>
               <li>
                 <Link
-                  to="/find-room"
+                  to="/"
                   className="text-gray-600 hover:text-gray-900 transition-colors"
                 >
                   방 찾기
