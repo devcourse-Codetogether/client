@@ -1,16 +1,16 @@
 import { useRef, useState } from 'react';
-import Sidebar from '../components/CodeEditor/Sidebar';
-import Header from '../components/CodeEditor/Header';
-import SubHeader from '../components/CodeEditor/SubHeader';
-import MonacoEditor from '../components/CodeEditor/MonacoEditor';
+import Sidebar from '../components/codeeditorpage/Sidebar';
+import Header from '../components/codeeditorpage/Header';
+import SubHeader from '../components/codeeditorpage/SubHeader';
+import MonacoEditor from '../components/codeeditorpage/MonacoEditor';
 import type { FileNode } from '../types/CodeEditor.types';
-import ConsoleBox from '../components/CodeEditor/ConsoleBox';
-import ProblemPreview from '../components/CodeEditor/ProblemPreview';
-import PanelTabHeader from '../components/CodeEditor/PanelTabHeader';
-import ChatPanel from '../components/CodeEditor/ChatPanel';
+import ConsoleBox from '../components/codeeditorpage/ConsoleBox';
+import ProblemPreview from '../components/codeeditorpage/ProblemPreview';
+import PanelTabHeader from '../components/codeeditorpage/PanelTabHeader';
+import ChatPanel from '../components/codeeditorpage/ChatPanel';
 import Modal from '../components/common/Modal';
 
-import type { ConsoleBoxHandle } from '../components/CodeEditor/ConsoleBox';
+import type { ConsoleBoxHandle } from '../components/codeeditorpage/ConsoleBox';
 import {
   ChatBubbleLeftRightIcon,
   LightBulbIcon,
