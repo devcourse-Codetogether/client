@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { CodeBracketIcon } from '@heroicons/react/24/outline';
 
 const Footer: React.FC = () => {
@@ -7,7 +6,7 @@ const Footer: React.FC = () => {
     <footer className="bg-gray-100 border-t border-primary-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* 주요 섹션들 */}
-        <div className="grid grid-cols-1 md:grid-cols-4">
+        <div className="grid grid-cols-1 md:grid-cols-2">
           {/* 왼쪽 섹션 - 브랜딩 및 소셜 미디어 */}
           <div className="space-y-4">
             <div>
@@ -34,68 +33,15 @@ const Footer: React.FC = () => {
           </div>
 
           {/* 두 번째 칸 - 비어있음 */}
-          <div></div>
-
-          {/* 세 번째 칸 - 서비스 링크 */}
           <div>
-            <h4 className="text-lg font-semibold text-gray-900 mb-4">서비스</h4>
-            <ul className="space-y-2">
-              <li>
-                <Link
-                  to="/"
-                  className="text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  방 만들기
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/"
-                  className="text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  방 찾기
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/mypage"
-                  className="text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  마이페이지
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* 네 번째 칸 - 지원 링크 */}
-          <div>
-            <h4 className="text-lg font-semibold text-gray-900 mb-4">지원</h4>
-            <ul className="space-y-2">
-              <li>
-                <Link
-                  to="/help"
-                  className="text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  도움말
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/contact"
-                  className="text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  문의하기
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/developer-guide"
-                  className="text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  개발자 가이드
-                </Link>
-              </li>
-            </ul>
+            <p className="text-gray-600 text-sm text-right">
+              프로그래머스 웹 풀스택 데브코스 4차 스프린트 망고시루팀
+              사이드프로젝트
+              <br />
+              강예람, 권순호, 이정찬, 박수연, 정기영
+              <br />
+              25.07.14 - 25.08.11
+            </p>
           </div>
         </div>
 
