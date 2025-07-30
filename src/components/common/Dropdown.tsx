@@ -1,4 +1,5 @@
 import { HTMLAttributes, useState } from 'react';
+import { ChevronUpIcon, ChevronDownIcon } from '@heroicons/react/20/solid';
 
 interface Option {
   label: string;
@@ -23,40 +24,6 @@ export default function Dropdown({
     setIsOpen(false);
   };
 
-  const ChevronUpIcon = (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      className="w-4 h-4 text-gray-400"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M5 15l7-7 7 7"
-      />
-    </svg>
-  );
-
-  const ChevronDownIcon = (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      className="w-4 h-4 text-gray-400"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M19 9l-7 7-7-7"
-      />
-    </svg>
-  );
-
   return (
     <div className="relative w-full border rounded-md border-gray-300">
       <div
@@ -64,7 +31,13 @@ export default function Dropdown({
         onClick={() => setIsOpen((prev) => !prev)}
       >
         <span>{placeholder}</span>
-        <span>{isOpen ? ChevronUpIcon : ChevronDownIcon}</span>
+        <span>
+          {isOpen ? (
+            <ChevronUpIcon className="w-4 h-4 text-gray-400" />
+          ) : (
+            <ChevronDownIcon className="w-4 h-4 text-gray-400" />
+          )}
+        </span>{' '}
       </div>
 
       {isOpen && (

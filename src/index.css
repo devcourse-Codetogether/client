@@ -54,3 +54,5 @@
 
   --color-kakao: #fee500;
 }
+
+@custom-variant dark (&:where(.dark, .dark *));
