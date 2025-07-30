@@ -3,10 +3,13 @@ import CodeTogetherLogo from '../assets/code_together_logo.png';
 import KakaoLoginLogo from '../assets/kakao_login_medium_wide.png';
 import { CodeBracketIcon, UserGroupIcon } from '@heroicons/react/24/solid';
 
+const REST_API_KEY = import.meta.env.VITE_KAKAO_REST_API_KEY;
+const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI;
+const KAKAO_AUTH_URL = `https://kauth.kakao.com/oauth/authorize?client_id=${REST_API_KEY}&redirect_uri=${REDIRECT_URI}&response_type=code`;
+
 const LoginPage = () => {
   const handleKakaoLogin = () => {
-    alert('카카오로 로그인하기');
-    // window.location.href = `${process.env.REACT_APP_API_BASE_URL}/oauth2/authorization/kakao`;
+    window.location.href = KAKAO_AUTH_URL;
   };
 
   return (
@@ -25,12 +28,13 @@ const LoginPage = () => {
         <p className="text-sm text-gray-500 mb-4">
           카카오 계정으로 간편하게 시작하세요
         </p>
-        <img
-          src={KakaoLoginLogo}
-          alt="Kakao Login"
-          className="cursor-pointer"
+        <button
+          type="button"
           onClick={handleKakaoLogin}
-        />
+          className="cursor-pointer"
+        >
+          <img src={KakaoLoginLogo} alt="Kakao Login" />
+        </button>
       </div>
 
       <p className="text-xs text-gray-500 mt-6">
