@@ -2,6 +2,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import ModalTestPage from './pages/ModalTestPage';
 import LoginPage from './pages/LoginPage';
 import MyPage from './pages/MyPage';
+import KakaoRedirectPage from './pages/KakaoRedirectionPage';
 
 const ColorTest = () => (
   <div className="p-4 space-y-4">
@@ -38,6 +39,10 @@ const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />,
+  },
+  {
+    path: '/oauth/kakao/callback',
+    element: <KakaoRedirectPage />,
   },
   {
     path: '/mypage',
