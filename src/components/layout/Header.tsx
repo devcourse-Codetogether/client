@@ -1,5 +1,5 @@
 import React from 'react';
-import { BellIcon, UserCircleIcon } from '@heroicons/react/24/outline';
+import { UserCircleIcon } from '@heroicons/react/24/outline';
 
 const Header: React.FC = () => {
   return (
@@ -17,11 +17,6 @@ const Header: React.FC = () => {
 
           {/* 오른쪽 아이콘들 */}
           <div className="flex items-center space-x-4">
-            {/* 알림 아이콘 */}
-            <button className="p-2 text-gray-600 hover:text-gray-900 transition-colors">
-              <BellIcon className="h-6 w-6" />
-            </button>
-
             {/* 사용자 프로필 아이콘 */}
             <button className="p-2 text-gray-600 hover:text-gray-900 transition-colors">
               <UserCircleIcon className="h-6 w-6" />

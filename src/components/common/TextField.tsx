@@ -25,7 +25,7 @@ export default function TextField({
         </label>
       )}
       <div
-        className={`flex items-center w-full border rounded-md px-3 py-2 focus-within:ring-1 focus-within:ring-primary-500 focus-within:border-primary-500 ${className}`}
+        className={`flex items-center w-full border border-gray-300 rounded-md px-3 py-2 focus-within:ring-1 focus-within:ring-primary-500 focus-within:border-primary-500 ${className}`}
       >
         {icon && <div className="mr-2 text-gray-400">{icon}</div>}
         <input
