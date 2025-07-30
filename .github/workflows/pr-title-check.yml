@@ -1,0 +1,19 @@
+name: Check PR Title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  check-title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR title
+        run: |
+          echo "PR title: ${{ github.event.pull_request.title }}"
+          title="${{ github.event.pull_request.title }}"
+          if [[ ! "$title" =~ ^\[(기능|수정|버그|리팩토링|문서|설정|삭제)\]\  ]]; then
+            echo "❌ PR 제목이 형식에 맞지 않습니다. '[기능] ...' 형태로 작성하세요."
+            exit 1
+          fi
+        shell: bash
