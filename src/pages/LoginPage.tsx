@@ -1,4 +1,3 @@
-import React from 'react';
 import CodeTogetherLogo from '../assets/code_together_logo.png';
 import KakaoLoginLogo from '../assets/kakao_login_medium_wide.png';
 import { CodeBracketIcon, UserGroupIcon } from '@heroicons/react/24/solid';
