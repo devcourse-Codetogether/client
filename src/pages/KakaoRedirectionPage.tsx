@@ -1,10 +1,13 @@
-// src/pages/KakaoRedirectPage.tsx
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { useUserStore } from '../stores/useUserStore';
 
 const KakaoRedirectPage = () => {
   const navigate = useNavigate();
+
+  const setAccessToken = useUserStore((state) => state.setAccessToken);
+  const setUser = useUserStore((state) => state.setUser);
 
   useEffect(() => {
     const code = new URL(window.location.href).searchParams.get('code');
@@ -18,11 +21,14 @@ const KakaoRedirectPage = () => {
         .then((res) => {
           const { accessToken, user } = res.data;
 
-          // 예시: 토큰 저장
+          // zustand에 저장
+          setAccessToken(accessToken);
+          setUser(user);
+
+          // localStorage에도 저장
           localStorage.setItem('accessToken', accessToken);
           localStorage.setItem('user', JSON.stringify(user));
 
-          // 홈페이지로 이동
           navigate('/');
         })
         .catch((err) => {
@@ -33,6 +39,7 @@ const KakaoRedirectPage = () => {
     } else {
       alert('인가 코드가 없습니다.');
       navigate('/login');
+      return;
     }
   }, [navigate]);
 

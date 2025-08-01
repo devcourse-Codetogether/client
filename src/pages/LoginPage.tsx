@@ -33,7 +33,7 @@ const LoginPage = () => {
           onClick={handleKakaoLogin}
           className="cursor-pointer"
         >
-          <img src={KakaoLoginLogo} alt="Kakao Login" />
+          <img src={KakaoLoginLogo} alt="Kakao Login Button" />
         </button>
       </div>
 
