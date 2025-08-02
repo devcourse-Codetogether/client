@@ -20,7 +20,7 @@ interface SidebarProps extends HTMLAttributes<HTMLDivElement> {
   users: User[];
   onInviteClick?: () => void;
   currentFile: string;
-  onSelectFile: (filename: string) => void;
+  onSelectFile: (file: { fileId: string; filename: string }) => void;
 }
 
 const colors = [

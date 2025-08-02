@@ -4,7 +4,9 @@ import MainPage from './pages/MainPage';
 import ModalTestPage from './pages/ModalTestPage';
 import LoginPage from './pages/LoginPage';
 import MyPage from './pages/MyPage';
-import CodeEditorPage from './pages/CodeEditorPage';
+// import CodeEditorPage from './pages/CodeEditorPage';
+import CodeEditorPage2 from './pages/CodeEditorPage2';
+import CodeEditorPage3 from './pages/CodeEditorPage3';
 
 const router = createBrowserRouter([
   {
@@ -25,7 +27,7 @@ const router = createBrowserRouter([
   },
   {
     path: '/editor',
-    element: <CodeEditorPage />,
+    element: <CodeEditorPage3 />,
   },
 ]);
 

@@ -36,13 +36,14 @@ interface Message {
   name: string;
 }
 
-export default function CodeEditorPage() {
+export default function CodeEditorPage2() {
+  const username = getRandomName();
+  const usercolor = getRandomColor();
   const [isPreviewVisible, setIsPreviewVisible] = useState<boolean>(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [activePanel, setActivePanel] = useState<'chat' | 'ai' | null>(null);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [settingModalOpen, setSettingModalOpen] = useState(false);
-  const [currentFile, setCurrentFile] = useState<string>('');
 
   const dummyFileTree: FileNode[] = [
     {
@@ -101,16 +102,22 @@ export default function CodeEditorPage() {
   const { roomId, type } = location.state || {};
 
   // 모나코, yjs, awareness, socket io
-  const containerRef = useRef<HTMLDivElement>(null); // 에디터가 들어갈 div
   const monacoRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null); // Monaco 인스턴스
   const socketRef = useRef<Socket | null>(null);
-  const awarenessRef = useRef<awarenessProtocol.Awareness | null>(null);
-
-  const ydocRef = useRef<Y.Doc | null>(null);
   const oldDecorationsRef = useRef<string[]>([]);
 
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
+  const ydocs: Record<string, Y.Doc> = {};
+  const awarenessMap: Record<string, awarenessProtocol.Awareness> = {};
+  const bindingMap: Record<string, MonacoBinding> = {};
+  const modelMap: Record<string, monaco.editor.ITextModel> = {};
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [currentFile, setCurrentFile] = useState('App.tsx');
+
+  const didInit = useRef(false);
+
+  // const [messages, setMessages] = useState<Message[]>([]);
+  // const [input, setInput] = useState('');
 
   // 추가 부분
   useEffect(() => {
@@ -120,47 +127,24 @@ export default function CodeEditorPage() {
     }
     const socket = socketRef.current;
 
-    // ✅ Y.Doc 인스턴스도 최초 1회만 생성
-    if (!ydocRef.current) {
-      ydocRef.current = new Y.Doc();
-    }
-
-    const ydoc = ydocRef.current;
-    const ytext = ydoc.getText('shared');
-
-    // ✅ Awareness 객체도 1회만 생성하고 사용자 상태 등록
-    if (!awarenessRef.current) {
-      awarenessRef.current = initAwareness(ydoc);
-    }
-    const awareness = awarenessRef.current;
-
-    // 🔁 실시간 문서 동기화 관련 소켓 이벤트 설정
-    socketEventsEdit(socket, ydoc, awareness);
-
-    // 💬 채팅 관련 소켓 이벤트 설정
-    socketEventChat(awareness);
-
-    // 🖱️ 다른 사용자 커서 위치 추적 및 표시
-    awarenessEvents(awareness, socket);
+    socket.on('connect', () => {
+      console.log('🔌 Connected to server', socket.id);
+      socket.emit('join', { roomId });
+    });
 
     // ⚠️ Monaco 에디터를 렌더링할 DOM이 없다면 중단
-    if (!containerRef.current) return;
+    if (!containerRef.current) {
+      console.warn('⚠️ containerRef가 아직 준비되지 않음.');
+      return;
+    }
 
-    // 📝 Monaco 에디터 생성 및 Awareness에 커서 위치 반영 설정
-    const editor = initEditor(containerRef.current, awareness);
-    monacoRef.current = editor;
-
-    // 🔗 Monaco 에디터와 Yjs 문서 및 awareness 연결
-    const binding = new MonacoBinding(
-      ytext,
-      editor.getModel()!,
-      new Set([editor]),
-      awareness,
-    );
+    // 기본 파일 초기화
+    initYDocIfNeeded(currentFile, socket);
+    switchToFile(currentFile);
 
     // ✅ 브라우저 종료 시 사용자 상태 정리
     const cleanUp = () => {
-      awareness.setLocalState(null);
+      awarenessMap[currentFile].setLocalState(null);
     };
 
     window.addEventListener('beforeunload', cleanUp);
@@ -169,158 +153,229 @@ export default function CodeEditorPage() {
     return () => {
       cleanUp();
       window.removeEventListener('beforeunload', cleanUp);
-      awareness.destroy();
-      binding.destroy();
-      editor.dispose();
-      awarenessRef.current?.destroy?.();
+
       monacoRef.current?.dispose?.();
-      socketRef.current?.disconnect?.();
-      awarenessRef.current = null;
-      monacoRef.current = null;
-      socketRef.current = null;
+      Object.values(bindingMap).forEach((b) => b.destroy());
+      Object.values(awarenessMap).forEach((a) => a.destroy());
       setTimeout(() => socket.disconnect(), 50); // 💡 100~200ms 정도 기다려주는 게 일반적
     };
-  }, [roomId]);
+  }, []);
 
   // ✅ 소켓 초기화 함수 (Fast Refresh 대응 없이 단순 생성)
   const initSocket = () => {
-    return io('http://localhost:3002/collab-algorism', {
+    return io('http://localhost:3002/collab-webpublish', {
       transports: ['websocket'],
       withCredentials: true,
     });
   };
 
-  // ✅ Awareness 초기화 및 사용자 정보 등록
-  const initAwareness = (ydoc: Y.Doc) => {
-    const awareness = new awarenessProtocol.Awareness(ydoc);
+  /** ✅ 파일이 선택될 때마다 호출하여 해당 파일의 Yjs 연결 준비 */
+  const initYDocIfNeeded = (fileName: string, socket: Socket) => {
+    if (!ydocs[fileName]) {
+      console.log('ydoc와 awareness 생성 ');
+      const ydoc = new Y.Doc();
+      ydocs[fileName] = ydoc;
 
-    awareness.setLocalStateField('user', {
-      name: getRandomName(),
-      color: getRandomColor(),
-    });
-    return awareness;
+      const awareness = new awarenessProtocol.Awareness(ydoc);
+      awareness.setLocalStateField('user', {
+        name: username,
+        color: usercolor,
+      });
+      awarenessMap[fileName] = awareness;
+    }
+
+    registerSocketEvents(fileName, socket);
   };
 
-  // 📡 문서 편집과 관련된 소켓 이벤트 설정
-  //socket.on(...)에 등록하는 콜백은 어디서 선언되었는지는 중요하지 않음
-  // 해당 시점에 유효한 함수라면 어떤 함수든 가능
-  const socketEventsEdit = (
-    socket: Socket,
-    ydoc: Y.Doc,
-    awareness: awarenessProtocol.Awareness,
-  ) => {
-    socket.on('connect', () => {
-      console.log('🔌 Connected to server', socket.id);
-      console.log('roomId:', roomId);
+  const registerSocketEvents = (fileName: string, socket: Socket) => {
+    const ydoc = ydocs[fileName]!;
+    const awareness = awarenessMap[fileName]!;
 
-      socket.emit('join', { roomId });
-    });
+    console.log('ydoc, awareness:', ydoc, awareness);
 
-    // 서버로부터 문서 초기 상태 동기화
-    socket.on('sync', (update: Uint8Array) => {
-      const fixedUpdate =
-        update instanceof Uint8Array ? update : new Uint8Array(update);
-      if (fixedUpdate instanceof Uint8Array && fixedUpdate.length > 0) {
-        Y.applyUpdate(ydoc, fixedUpdate);
-      }
-    });
+    const handleSync = ({
+      update,
+      filename,
+    }: {
+      update: Uint8Array;
+      filename: string;
+    }) => {
+      if (filename !== fileName) return;
+      Y.applyUpdate(ydoc, new Uint8Array(update));
+    };
 
-    // 다른 클라이언트의 업데이트 반영
-    socket.on('update', (update: Uint8Array | ArrayBuffer) => {
-      console.log('update:', update);
+    const handleUpdate = ({
+      update,
+      filename,
+    }: {
+      update: Uint8Array;
+      filename: string;
+    }) => {
+      if (filename !== fileName) return;
+      Y.applyUpdate(ydoc, new Uint8Array(update));
+    };
 
-      try {
-        const fixedUpdate =
-          update instanceof Uint8Array ? update : new Uint8Array(update);
-        Y.applyUpdate(ydoc, new Uint8Array(fixedUpdate));
-      } catch (err) {
-        console.error('update apply 실패:', err);
-      }
-    });
-
-    // 현재 클라이언트의 업데이트를 서버로 전송
-    ydoc.on('update', (update: Uint8Array) => {
-      socket.emit('update', { roomId, update });
-    });
-
-    // Awareness 상태 동기화
-    socket.on('awareness-update', (update: Uint8Array) => {
+    const handleAwarenessUpdate = ({
+      update,
+      filename,
+    }: {
+      update: Uint8Array;
+      filename: string;
+    }) => {
+      if (filename !== fileName) return;
       awarenessProtocol.applyAwarenessUpdate(
         awareness,
         new Uint8Array(update),
         null,
       );
+    };
+
+    socket.off('sync', handleSync);
+    socket.off('update', handleUpdate);
+    socket.off('awareness-update', handleAwarenessUpdate);
+
+    socket.on('sync', handleSync);
+    socket.on('update', handleUpdate);
+    socket.on('awareness-update', handleAwarenessUpdate);
+
+    // 파일 싱크 요청
+    socket.emit('sync', { roomId, fileName });
+
+    ydoc.on('update', (update: Uint8Array) => {
+      console.log('ydoc 업데이트:', fileName);
+      socket.emit('update', { roomId, fileName, update });
     });
 
-    // 💬 채팅 메시지 수신 처리
-    socket.on('chat', (receivedMessage: Message) => {
-      console.log('receivedMessage:', receivedMessage);
-      setMessages((prev) => [...prev, receivedMessage]);
-    });
-  };
-
-  // 💬 사용자 Awareness에서 유저 이름 가져오기
-  const socketEventChat = (awareness: awarenessProtocol.Awareness) => {
-    const state = awareness.getLocalState();
-    if (!state) return;
-
-    const userName = state.user.name;
-    console.log(userName);
-
-    // socket.emit("update", { roomId, update });
-  };
-
-  // 🎯 다른 사용자 Awareness 정보 기반 커서 표시 이벤트
-  const awarenessEvents = (
-    awareness: awarenessProtocol.Awareness,
-    socket: Socket,
-  ) => {
-    // Awareness 업데이트가 발생하면 서버에 전송
     awareness.on('update', ({ added, updated, removed }) => {
       const update = awarenessProtocol.encodeAwarenessUpdate(
         awareness,
         added.concat(updated, removed),
       );
-      socket.emit('awareness-update', { roomId, update });
+      socket.emit('awareness-update', { roomId, fileName, update });
     });
 
-    // Awareness 상태가 변경되면 커서 표시 업데이트
     awareness.on('change', () => {
-      const states = awareness.getStates();
-      const newDecorations: monaco.editor.IModelDeltaDecoration[] = [];
-
-      for (const [clientId, state] of states) {
-        if (clientId === awareness.clientID) continue; // 본인 제외
-        const user = state.user;
-        const cursor = state.cursor;
-        if (!user || !cursor) continue; // 정보 없으면 생략
-
-        newDecorations.push({
-          range: new monaco.Range(
-            cursor.line,
-            cursor.column,
-            cursor.line,
-            cursor.column,
-          ),
-          options: {
-            className: 'remote-cursor',
-            afterContentClassName: `remote-cursor-label-${clientId}`,
-            stickiness:
-              monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
-          },
-        });
-
-        // 🏷️ 유저 커서 이름 스타일 DOM에 추가
-        addCursorLabelStyle(clientId, user.name, user.color);
-      }
-
-      const editor = monacoRef.current!;
-      const decorationIds = editor.deltaDecorations(
-        oldDecorationsRef.current,
-        newDecorations,
-      );
-      oldDecorationsRef.current = decorationIds;
+      if (currentFile !== fileName) return;
+      updateRemoteCursors(awareness);
     });
+  };
+
+  /** ✅ 파일 전환 시 Monaco 에디터와 Yjs 연결 전환 */
+  const switchToFile = (fileName: string) => {
+    console.log('[switchToFile] 진입:', fileName);
+    const ydoc = ydocs[fileName];
+    const awareness = awarenessMap[fileName];
+    const ytext = ydoc.getText(fileName);
+    const uri = monaco.Uri.parse(`file:///${fileName}`);
+
+    // ✅ 1. modelMap 또는 monaco 내부에서 모델 가져오기
+    let model = modelMap[fileName] ?? monaco.editor.getModel(uri);
+
+    // ✅ 2. 없으면 새로 생성
+    if (!model) {
+      console.log('처음 모델 생성');
+      model = monaco.editor.createModel(
+        ytext.toString(),
+        getLanguageFromFile(fileName),
+        uri,
+      );
+    } else {
+      console.log('지금 모델이 있다고? model:', model);
+    }
+
+    modelMap[fileName] = model;
+
+    // ✅ 3. Monaco Editor 인스턴스가 없다면 생성
+    if (!monacoRef.current || monacoRef.current.getModel() === null) {
+      console.log('모나코 에디터 인스턴스 생성');
+      monacoRef.current = monaco.editor.create(containerRef.current!, {
+        model,
+        theme: 'vs-dark',
+        automaticLayout: true,
+      });
+
+      // ✅ 커서 위치 awareness 등록
+      monacoRef.current.onDidChangeCursorPosition((e) => {
+        awareness.setLocalStateField('cursor', {
+          line: e.position.lineNumber,
+          column: e.position.column,
+        });
+      });
+    } else {
+      // ✅ 4. 모델 전환
+      monacoRef.current.setModel(model);
+    }
+
+    // ✅ 5. 기존 바인딩 제거 후 새로 연결
+    const prevBinding = bindingMap[fileName];
+    if (
+      prevBinding &&
+      !(prevBinding as any)._isDisposed &&
+      prevBinding.awareness === awarenessMap[fileName]
+    ) {
+      try {
+        console.log('바인딩이 있다고?');
+        prevBinding.destroy();
+      } catch (err) {
+        console.warn(`[yjs] 바인딩 제거 중 오류 (무시 가능):`, err);
+      }
+    } else {
+      console.log('바인딩 안되어 잇음');
+    }
+
+    const binding = new MonacoBinding(
+      ytext,
+      model,
+      new Set([monacoRef.current]),
+      awareness,
+    );
+
+    bindingMap[fileName] = binding;
+  };
+
+  /** ✅ Awareness 기반 사용자 커서 표시 */
+  const updateRemoteCursors = (awareness: awarenessProtocol.Awareness) => {
+    const states = awareness.getStates();
+    const newDecorations: monaco.editor.IModelDeltaDecoration[] = [];
+
+    for (const [clientId, state] of states) {
+      if (clientId === awareness.clientID) continue;
+      const user = state.user;
+      const cursor = state.cursor;
+      if (!user || !cursor) continue;
+
+      newDecorations.push({
+        range: new monaco.Range(
+          cursor.line,
+          cursor.column,
+          cursor.line,
+          cursor.column,
+        ),
+        options: {
+          className: 'remote-cursor',
+          afterContentClassName: `remote-cursor-label-${clientId}`,
+          stickiness:
+            monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+        },
+      });
+
+      addCursorLabelStyle(clientId, user.name, user.color);
+    }
+
+    const editor = monacoRef.current!;
+    const decorationIds = editor.deltaDecorations(
+      oldDecorationsRef.current,
+      newDecorations,
+    );
+    oldDecorationsRef.current = decorationIds;
+  };
+
+  /** ✅ 파일 이름에 따라 언어 결정 */
+  const getLanguageFromFile = (filename: string): string => {
+    if (filename.endsWith('.html')) return 'html';
+    if (filename.endsWith('.css')) return 'css';
+    if (filename.endsWith('.js')) return 'javascript';
+    return 'plaintext';
   };
 
   const addCursorLabelStyle = (
@@ -345,56 +400,34 @@ export default function CodeEditorPage() {
     document.head.appendChild(style);
   };
 
-  // 📝 Monaco Editor 초기화 및 Awareness 커서 반영
-  const initEditor = (
-    container: HTMLElement,
-    awareness: awarenessProtocol.Awareness,
-  ): monaco.editor.IStandaloneCodeEditor => {
-    const editor = monaco.editor.create(container, {
-      value: '',
-      language: 'javascript',
-      theme: 'vs-white',
-      automaticLayout: true,
-    });
-
-    editor.onDidChangeCursorPosition((e) => {
-      awareness.setLocalStateField('cursor', {
-        line: e.position.lineNumber,
-        column: e.position.column,
-      });
-    });
-
-    return editor;
-  };
-
   // ✉️ 채팅 메시지 전송 함수
-  const sendMessage = () => {
-    if (input.trim() === '') return;
-    if (!awarenessRef.current) return;
+  // const sendMessage = () => {
+  //   if (input.trim() === '') return;
+  //   if (!awarenessRef.current) return;
 
-    const state = awarenessRef.current.getLocalState();
+  //   const state = awarenessRef.current.getLocalState();
 
-    if (!state) return;
+  //   if (!state) return;
 
-    const userName = state.user.name;
+  //   const userName = state.user.name;
 
-    const localtime = new Date().toLocaleTimeString();
+  //   const localtime = new Date().toLocaleTimeString();
 
-    const message: Message = {
-      time: localtime,
-      sender: 'me',
-      text: input,
-      name: '',
-    };
+  //   const message: Message = {
+  //     time: localtime,
+  //     sender: 'me',
+  //     text: input,
+  //     name: '',
+  //   };
 
-    setMessages((prev) => [...prev, message]);
-    setInput('');
+  //   setMessages((prev) => [...prev, message]);
+  //   setInput('');
 
-    const socket = socketRef.current;
-    if (!socket) return;
-    const newMessage = { ...message, name: userName };
-    socket.emit('chat', { roomId, newMessage });
-  };
+  //   const socket = socketRef.current;
+  //   if (!socket) return;
+  //   const newMessage = { ...message, name: userName };
+  //   socket.emit('chat', { roomId, newMessage });
+  // };
 
   const problemRef = useRef<HTMLTextAreaElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
@@ -423,8 +456,8 @@ export default function CodeEditorPage() {
     console.log(fileId, filename);
 
     if (filename !== currentFile) {
-      setCurrentFile(filename);
       console.log('파일 변경:', filename);
+      setCurrentFile(filename);
     }
   };
 

@@ -101,6 +101,8 @@ const MainPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <RoomCard
               title="알고리즘 스터디 - 백준 문제풀이"
+              type="algorism"
+              id="roomid1"
               techStack="</> Python"
               status="active"
               category="문제풀이"

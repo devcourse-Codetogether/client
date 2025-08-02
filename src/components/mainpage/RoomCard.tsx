@@ -1,9 +1,12 @@
 import React from 'react';
 import Button from '../common/Button';
 import Label from '../common/Label';
+import { Link } from 'react-router-dom';
 
 interface RoomCardProps {
   title: string;
+  type?: string;
+  id?: string;
   techStack: string;
   status: 'active' | 'inactive';
   category: string;
@@ -12,6 +15,8 @@ interface RoomCardProps {
 
 const RoomCard: React.FC<RoomCardProps> = ({
   title,
+  type,
+  id,
   techStack,
   status,
   category,
@@ -53,7 +58,14 @@ const RoomCard: React.FC<RoomCardProps> = ({
             {status === 'active' ? '활성' : '비활성'}
           </span>
         </div>
-        <Button text="입장하기" color="primary" className="text-sm px-4 py-2" />
+        {/* 데이터 받기 */}
+        <Link to="/editor" state={{ roomId: id, type: type }}>
+          <Button
+            text="입장하기"
+            color="primary"
+            className="text-sm px-4 py-2"
+          />
+        </Link>
       </div>
     </div>
   );
