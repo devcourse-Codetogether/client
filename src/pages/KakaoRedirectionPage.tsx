@@ -11,7 +11,7 @@ const KakaoRedirectPage = () => {
 
   useEffect(() => {
     const code = new URL(window.location.href).searchParams.get('code');
-
+    console.log('[DEBUG] 프론트가 받은 code:', code);
     if (code) {
       // 백엔드로 인가 코드 전달
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;

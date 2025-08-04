@@ -9,6 +9,9 @@ import {
   ArrowRightIcon,
 } from '@heroicons/react/24/solid';
 import LogModal from '../components/mypage/LogModal';
+import Button from '../components/common/Button';
+import { useNavigate } from 'react-router-dom';
+import { logout } from '../utils/logout';
 
 type RoomType = '문제풀이' | '웹편집';
 
@@ -55,20 +58,34 @@ const mockRooms: Room[] = [
 const MyPage = () => {
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null); // 모달 상태
 
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout(navigate);
+  };
+
   return (
     <div className="bg-gray-100 min-h-screen py-10">
       <div className="max-w-6xl mx-auto px-4">
         {/* 프로필 */}
-        <div className="bg-white border border-gray-200 rounded-sm p-6 flex items-center gap-4 mb-8">
-          <img
-            src={CodeTogetherLogo}
-            alt="프로필 사진"
-            className="w-16 h-16 rounded-full"
-          />
-          <div>
-            <h2 className="text-lg font-bold text-gray-800">코딩마스터</h2>
-            <p className="text-sm text-gray-500">master@codetogether.com</p>
+        <div className="bg-white border border-gray-200 rounded-sm p-6 flex justify-between items-center mb-8">
+          <div className="flex items-center gap-4">
+            <img
+              src={CodeTogetherLogo}
+              alt="프로필 사진"
+              className="w-16 h-16 rounded-full"
+            />
+            <div>
+              <h2 className="text-lg font-bold text-gray-800">코딩마스터</h2>
+              <p className="text-sm text-gray-500">master@codetogether.com</p>
+            </div>
           </div>
+          <Button
+            text="로그아웃"
+            color="primary"
+            className="mr-4"
+            onClick={handleLogout}
+          />
         </div>
 
         {/* 참여한 방 목록 */}
