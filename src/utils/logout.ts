@@ -3,8 +3,8 @@ import { useUserStore } from '../stores/useUserStore';
 
 export const logout = async (navigate: (path: string) => void) => {
   try {
-    const accessToken = localStorage.getItem('accessToken');
-    if (!accessToken) {
+    const userStorage = localStorage.getItem('user-storage');
+    if (!userStorage) {
       alert('이미 로그아웃된 상태입니다.');
       navigate('/login');
       return;
@@ -18,8 +18,6 @@ export const logout = async (navigate: (path: string) => void) => {
     );
 
     useUserStore.getState().reset();
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
     localStorage.removeItem('user-storage');
 
     alert('로그아웃되었습니다.');
