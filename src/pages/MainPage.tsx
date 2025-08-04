@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -11,11 +11,34 @@ import RoomCard from '../components/mainpage/RoomCard';
 import Button from '../components/common/Button';
 import CreateRoomModal from '../components/mainpage/CreateRoomModal';
 import FilterModal from '../components/mainpage/FilterModal';
+import { createSession, getSessionList, joinSession } from '../api/session';
+
+export interface Session {
+  id: number;
+  title: string;
+  language: string;
+  mode: '문제풀이' | '웹편집';
+  isEnded: boolean;
+}
 
 const MainPage: React.FC = () => {
   const [searchValue, setSearchValue] = useState('');
   const [isCreateRoomModalOpen, setIsCreateRoomModalOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [sessionList, setSessionList] = useState<Session[]>([]);
+
+  const fetchSessions = async () => {
+    try {
+      const data = await getSessionList();
+      setSessionList(data);
+    } catch (error) {
+      console.error('세션 목록 조회 실패:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchSessions();
+  }, []);
 
   const handleSearch = (value: string) => {
     alert(`검색어: ${value}`);
@@ -36,16 +59,43 @@ const MainPage: React.FC = () => {
     setIsFilterModalOpen(false);
   };
 
-  const handleCreateRoom = (roomData: {
+  const handleCreateRoom = async (roomData: {
     title: string;
     mode: string;
     language: string;
   }) => {
-    console.log('새 방 생성:', roomData);
-    alert(
-      `새 방이 생성되었습니다!\n제목: ${roomData.title}\n모드: ${roomData.mode}\n언어: ${roomData.language}`,
-    );
-    setIsCreateRoomModalOpen(false);
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        alert('로그인이 필요합니다.');
+        return;
+      }
+
+      const result = await createSession(token, roomData);
+      alert(`새 방이 생성되었습니다!\n방 ID: ${result.id}`);
+      setIsCreateRoomModalOpen(false);
+      await fetchSessions();
+    } catch (error) {
+      console.error(error);
+      alert('방 생성 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleJoinSession = async (sessionId: number) => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        alert('로그인이 필요합니다.');
+        return;
+      }
+
+      await joinSession(token, sessionId);
+      alert('세션에 참여했습니다!');
+      // TODO: 세션 상세 페이지로 이동
+    } catch (error) {
+      console.error(error);
+      alert('세션 참여 중 오류가 발생했습니다.');
+    }
   };
 
   return (
@@ -73,7 +123,6 @@ const MainPage: React.FC = () => {
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold text-gray-900">활성 방 목록</h2>
             <div className="flex items-center gap-4">
-              {/* 검색 필드 */}
               <TextField
                 placeholder="방 제목 검색..."
                 value={searchValue}
@@ -85,8 +134,7 @@ const MainPage: React.FC = () => {
                 }}
                 icon={<MagnifyingGlassIcon className="w-5 h-5" />}
                 className="w-64"
-              />{' '}
-              {/* 필터 버튼 */}
+              />
               <Button
                 icon={<FunnelIcon className="w-4 h-4" />}
                 text="필터"
@@ -97,47 +145,20 @@ const MainPage: React.FC = () => {
             </div>
           </div>
 
-          {/* 방 카드 그리드 */}
+          {/* 동적 방 카드 그리드 */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <RoomCard
-              title="알고리즘 스터디 - 백준 문제풀이"
-              techStack="</> Python"
-              status="active"
-              category="문제풀이"
-            />
-            <RoomCard
-              title="React 프로젝트 협업"
-              techStack="</> JavaScript"
-              status="active"
-              category="웹편집"
-            />
-            <RoomCard
-              title="Java 기초 학습"
-              techStack="</> Java"
-              status="active"
-              category="문제풀이"
-            />
-            <RoomCard
-              title="웹 개발 프로젝트"
-              techStack="</> HTML/CSS"
-              status="active"
-              category="웹편집"
-            />
-            <RoomCard
-              title="Python 데이터 분석"
-              techStack="</> Python"
-              status="active"
-              category="문제풀이"
-            />
-            <RoomCard
-              title="Node.js 백엔드 개발"
-              techStack="</> JavaScript"
-              status="active"
-              category="웹편집"
-            />
+            {sessionList.map((session) => (
+              <RoomCard
+                key={session.id}
+                title={session.title}
+                techStack={`</> ${session.language}`}
+                category={session.mode}
+                onJoin={() => handleJoinSession(session.id)}
+              />
+            ))}
           </div>
 
-          {/* 더 많은 방 보기 버튼 */}
+          {/* 더 많은 방 보기 */}
           <div className="text-center mt-8">
             <Button
               text="더 많은 방 보기"
@@ -149,14 +170,12 @@ const MainPage: React.FC = () => {
       </main>
       <Footer />
 
-      {/* 새 방 만들기 모달 */}
       <CreateRoomModal
         isOpen={isCreateRoomModalOpen}
         onClose={() => setIsCreateRoomModalOpen(false)}
         onConfirm={handleCreateRoom}
       />
 
-      {/* 필터 모달 */}
       <FilterModal
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
