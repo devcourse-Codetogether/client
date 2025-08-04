@@ -7,6 +7,7 @@ interface RoomCardProps {
   techStack: string;
   category: string;
   className?: string;
+  onJoin?: () => void;
 }
 
 const RoomCard: React.FC<RoomCardProps> = ({
@@ -14,6 +15,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
   techStack,
   category,
   className = '',
+  onJoin,
 }) => {
   return (
     <div
@@ -42,7 +44,12 @@ const RoomCard: React.FC<RoomCardProps> = ({
       {/* 상태 및 입장 버튼 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center"></div>
-        <Button text="입장하기" color="primary" className="text-sm px-4 py-2" />
+        <Button
+          text="입장하기"
+          color="primary"
+          className="text-sm px-4 py-2"
+          onClick={onJoin}
+        />
       </div>
     </div>
   );

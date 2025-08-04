@@ -23,3 +23,16 @@ export const getSessionList = async (page = 1, limit = 20) => {
 
   return res.data.sessions;
 };
+
+export const joinSession = async (token: string, sessionId: number) => {
+  const res = await axios.post(
+    `${import.meta.env.VITE_API_BASE_URL}/sessions/${sessionId}/join`,
+    {},
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+  return res.data;
+};

@@ -11,20 +11,21 @@ import RoomCard from '../components/mainpage/RoomCard';
 import Button from '../components/common/Button';
 import CreateRoomModal from '../components/mainpage/CreateRoomModal';
 import FilterModal from '../components/mainpage/FilterModal';
-import { createSession, getSessionList } from '../api/session';
+import { createSession, getSessionList, joinSession } from '../api/session';
 
 export interface Session {
   id: number;
   title: string;
   language: string;
   mode: '문제풀이' | '웹편집';
+  isEnded: boolean;
 }
 
 const MainPage: React.FC = () => {
   const [searchValue, setSearchValue] = useState('');
   const [isCreateRoomModalOpen, setIsCreateRoomModalOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-  const [sessionList, setSessionList] = useState([]);
+  const [sessionList, setSessionList] = useState<Session[]>([]);
 
   const fetchSessions = async () => {
     try {
@@ -73,10 +74,27 @@ const MainPage: React.FC = () => {
       const result = await createSession(token, roomData);
       alert(`새 방이 생성되었습니다!\n방 ID: ${result.id}`);
       setIsCreateRoomModalOpen(false);
-      await fetchSessions(); // 방 생성 후 목록 갱신
+      await fetchSessions();
     } catch (error) {
       console.error(error);
       alert('방 생성 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleJoinSession = async (sessionId: number) => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        alert('로그인이 필요합니다.');
+        return;
+      }
+
+      await joinSession(token, sessionId);
+      alert('세션에 참여했습니다!');
+      // TODO: 세션 상세 페이지로 이동
+    } catch (error) {
+      console.error(error);
+      alert('세션 참여 중 오류가 발생했습니다.');
     }
   };
 
@@ -129,12 +147,13 @@ const MainPage: React.FC = () => {
 
           {/* 동적 방 카드 그리드 */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sessionList.map((session: Session) => (
+            {sessionList.map((session) => (
               <RoomCard
                 key={session.id}
                 title={session.title}
                 techStack={`</> ${session.language}`}
                 category={session.mode}
+                onJoin={() => handleJoinSession(session.id)}
               />
             ))}
           </div>
