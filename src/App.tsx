@@ -1,11 +1,9 @@
-import React from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import MainPage from './pages/MainPage';
 import ModalTestPage from './pages/ModalTestPage';
 import LoginPage from './pages/LoginPage';
 import MyPage from './pages/MyPage';
-// import CodeEditorPage from './pages/CodeEditorPage';
-import CodeEditorPage3 from './pages/CodeEditorPage3';
+import CodeEditorPage from './pages/CodeEditorPage';
 
 const router = createBrowserRouter([
   {
@@ -26,7 +24,7 @@ const router = createBrowserRouter([
   },
   {
     path: '/editor',
-    element: <CodeEditorPage3 />,
+    element: <CodeEditorPage />,
   },
 ]);
 
