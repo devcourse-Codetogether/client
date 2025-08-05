@@ -12,7 +12,7 @@ interface Props {
   node: FileNode;
   depth?: number;
   currentFile?: string;
-  onSelectFile?: (filename: string) => void;
+  onSelectFile?: (file: { fileId: string; filename: string }) => void;
 }
 
 export default function FileTreeNode({
@@ -28,7 +28,7 @@ export default function FileTreeNode({
     if (node.type === 'folder') {
       setIsOpen((prev) => !prev);
     } else if (node.type === 'file' && onSelectFile) {
-      onSelectFile(node.name);
+      onSelectFile({ fileId: node.id, filename: node.name });
     }
   };
 
