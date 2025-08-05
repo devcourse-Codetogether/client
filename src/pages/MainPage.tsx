@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -26,6 +27,8 @@ const MainPage: React.FC = () => {
   const [isCreateRoomModalOpen, setIsCreateRoomModalOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [sessionList, setSessionList] = useState<Session[]>([]);
+
+  const navigate = useNavigate();
 
   const fetchSessions = async () => {
     try {
@@ -75,6 +78,13 @@ const MainPage: React.FC = () => {
       alert(`새 방이 생성되었습니다!\n방 ID: ${result.id}`);
       setIsCreateRoomModalOpen(false);
       await fetchSessions();
+      navigate('/editor', {
+        state: {
+          roomId: result.id,
+          type: roomData.mode,
+          isOwner: true,
+        },
+      });
     } catch (error) {
       console.error(error);
       alert('방 생성 중 오류가 발생했습니다.');
@@ -92,6 +102,14 @@ const MainPage: React.FC = () => {
       await joinSession(token, sessionId);
       alert('세션에 참여했습니다!');
       // TODO: 세션 상세 페이지로 이동
+      // 임시 navigate
+      navigate('/editor', {
+        state: {
+          roomId: sessionId,
+          type: 'guest',
+          isOwner: false,
+        },
+      });
     } catch (error) {
       console.error(error);
       alert('세션 참여 중 오류가 발생했습니다.');

@@ -35,6 +35,11 @@ export default function ChatPanel({
               content={msg.content}
             />
           ))}
+        {chatMessages.length === 0 && (
+          <div className="text-sm text-gray-500 dark:text-gray-300 text-center mt-4">
+            아직 채팅이 없습니다.
+          </div>
+        )}
         {activePanel === 'ai' &&
           aiMessages.map((msg, idx) => (
             <ChatMessage

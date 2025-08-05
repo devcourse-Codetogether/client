@@ -17,6 +17,7 @@ import {
 } from '@heroicons/react/24/solid';
 import TextField from '../components/common/TextField';
 import { useLocation } from 'react-router-dom';
+import { postAIChat } from '../api/aiChat';
 
 import * as Y from 'yjs';
 import { io, Socket } from 'socket.io-client';
@@ -121,26 +122,21 @@ export default function CodeEditorPage3() {
     { id: 3, nickname: '예람', line: 87 },
   ];
 
-  const isOwner = true;
   const mode = 'problem';
 
   const aiMessages = [
     {
       nickname: 'AI 도우미',
-      time: '10:20',
-      content: '이 문제는 DFS 방식으로 해결할 수 있습니다.',
-    },
-    {
-      nickname: 'AI 도우미',
-      time: '10:21',
-      content: '입력값은 항상 유효하다고 가정해도 됩니다.',
+      time: '',
+      content:
+        '안녕하세요. AI 도우미입니다. 코드 리뷰를 원하신다면 코드 리뷰 버튼을 눌러주시고, 궁금한 점이 있으시면 채팅으로 자유롭게 물어봐 주세요.',
     },
   ];
 
   const location = useLocation();
 
   // 페이지에서 넘어온 데이터
-  const { roomId } = location.state || {};
+  const { roomId, isOwner } = location.state || {};
 
   // 모나코, yjs, awareness, socket io
   const monacoRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null); // Monaco 인스턴스
@@ -151,23 +147,7 @@ export default function CodeEditorPage3() {
   const currentFileRef = useRef<string>('index.html');
   const [oldFile, setOldFile] = useState<string>('');
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      nickname: '기영',
-      time: '10:15',
-      content: '여기 문제 조건 다시 확인해주세요.',
-    },
-    {
-      nickname: '민수',
-      time: '10:17',
-      content: '네 알겠습니다!',
-    },
-    {
-      nickname: '하린',
-      time: '10:18',
-      content: '힌트는 어디에 있나요?',
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
 
   const [input, setInput] = useState('');
 
@@ -210,8 +190,6 @@ export default function CodeEditorPage3() {
 
   // ✅ 소켓 초기화 함수 (Fast Refresh 대응 없이 단순 생성)
   const initSocket = () => {
-    //https://codetogether.store/collab-webpublish
-    //http://localhost:3002/collab-webpublish
     return io('https://codetogether.store/collab-webpublish', {
       transports: ['websocket'],
       withCredentials: true,
@@ -664,25 +642,54 @@ export default function CodeEditorPage3() {
   };
 
   // ✉️ 채팅 메시지 전송 함수
-  const handleSendChat = () => {
-    console.log('채팅:', chatInputRef.current?.value);
+  const handleSendChat = async () => {
     const content = chatInputRef.current?.value;
-
     if (!content) return;
 
-    const userName = username;
     const localtime = new Date().toLocaleTimeString();
     const newMessage: Message = {
       time: localtime,
       content,
-      nickname: userName,
+      nickname: username,
     };
+
     setMessages((prev) => [...prev, newMessage]);
     setInput('');
-    console.log(input);
-    const socket = socketRef.current;
-    if (!socket) return;
-    socket.emit('chat', { roomId, newMessage });
+
+    if (activePanel === 'chat') {
+      const socket = socketRef.current;
+      if (!socket) return;
+      socket.emit('chat', { roomId, newMessage });
+    } else if (activePanel === 'ai') {
+      try {
+        const token = localStorage.getItem('token'); // 또는 다른 방식으로 accessToken
+        if (!token) {
+          console.error('토큰이 없습니다.');
+          return;
+        }
+
+        const response = await postAIChat(token, roomId, {
+          mode: 'question', // 또는 'review' 선택 가능 (현재는 질문으로 처리)
+          content,
+        });
+
+        const aiMessage: Message = {
+          time: new Date().toLocaleTimeString(),
+          content: response.content ?? 'AI 응답이 없습니다.',
+          nickname: 'AI 도우미',
+        };
+
+        setMessages((prev) => [...prev, aiMessage]);
+      } catch (error) {
+        console.error('AI 요청 실패:', error);
+        const errorMessage: Message = {
+          time: new Date().toLocaleTimeString(),
+          content: 'AI 응답을 가져오는 데 실패했습니다.',
+          nickname: '시스템',
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+      }
+    }
   };
 
   const handleSelectFile = (file: { fileId: string; filename: string }) => {
