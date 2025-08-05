@@ -4,6 +4,8 @@ import Label from '../common/Label';
 
 interface RoomCardProps {
   title: string;
+  type?: string;
+  id?: string;
   techStack: string;
   category: string;
   className?: string;
