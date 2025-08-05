@@ -6,7 +6,7 @@ import * as monaco from 'monaco-editor';
 
 import * as awarenessProtocol from 'y-protocols/awareness.js';
 
-import { getRandomColor, getRandomName } from './util';
+import { getRandomColor, getRandomName } from './utils';
 
 interface Message {
   time: string;
@@ -172,7 +172,7 @@ const CollaborativeTextarea2 = ({ roomId }: { roomId: string }) => {
   // 💬 사용자 Awareness에서 유저 이름 가져오기
   const socketEventChat = (awareness: awarenessProtocol.Awareness) => {
     const state = awareness.getLocalState();
-    const userName = state.user.name;
+    const userName = state?.user?.name ?? 'Unknown';
     console.log(userName);
 
     // socket.emit("update", { roomId, update });
@@ -184,13 +184,24 @@ const CollaborativeTextarea2 = ({ roomId }: { roomId: string }) => {
     socket: Socket,
   ) => {
     // Awareness 업데이트가 발생하면 서버에 전송
-    awareness.on('update', ({ added, updated, removed }) => {
-      const update = awarenessProtocol.encodeAwarenessUpdate(
-        awareness,
-        added.concat(updated, removed),
-      );
-      socket.emit('awareness-update', { roomId, update });
-    });
+    awareness.on(
+      'update',
+      ({
+        added,
+        updated,
+        removed,
+      }: {
+        added: number[];
+        updated: number[];
+        removed: number[];
+      }) => {
+        const update = awarenessProtocol.encodeAwarenessUpdate(
+          awareness,
+          added.concat(updated, removed),
+        );
+        socket.emit('awareness-update', { roomId, update });
+      },
+    );
 
     // Awareness 상태가 변경되면 커서 표시 업데이트
     awareness.on('change', () => {
@@ -278,7 +289,8 @@ const CollaborativeTextarea2 = ({ roomId }: { roomId: string }) => {
   // ✉️ 채팅 메시지 전송 함수
   const sendMessage = () => {
     if (input.trim() === '') return;
-    const userName = awarenessRef.current.getLocalState().user.name;
+    const userName =
+      awarenessRef.current?.getLocalState()?.user.name ?? 'Unknown';
 
     const localtime = new Date().toLocaleTimeString();
 
@@ -292,9 +304,8 @@ const CollaborativeTextarea2 = ({ roomId }: { roomId: string }) => {
     setMessages((prev) => [...prev, message]);
     setInput('');
 
-    const socket = socketRef.current;
     const newMessage = { ...message, name: userName };
-    socket.emit('chat', { roomId, newMessage });
+    socketRef.current?.emit('chat', { roomId, newMessage });
   };
 
   return (

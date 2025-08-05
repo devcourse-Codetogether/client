@@ -1,7 +1,6 @@
 import React from 'react';
 import Button from '../common/Button';
 import Label from '../common/Label';
-import { Link } from 'react-router-dom';
 
 interface RoomCardProps {
   title: string;
@@ -15,8 +14,6 @@ interface RoomCardProps {
 
 const RoomCard: React.FC<RoomCardProps> = ({
   title,
-  type,
-  id,
   techStack,
   category,
   className = '',

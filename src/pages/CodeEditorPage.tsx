@@ -140,7 +140,7 @@ export default function CodeEditorPage3() {
   const location = useLocation();
 
   // 페이지에서 넘어온 데이터
-  const { roomId, type } = location.state || {};
+  const { roomId } = location.state || {};
 
   // 모나코, yjs, awareness, socket io
   const monacoRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null); // Monaco 인스턴스
@@ -679,6 +679,7 @@ export default function CodeEditorPage3() {
     };
     setMessages((prev) => [...prev, newMessage]);
     setInput('');
+    console.log(input);
     const socket = socketRef.current;
     if (!socket) return;
     socket.emit('chat', { roomId, newMessage });
