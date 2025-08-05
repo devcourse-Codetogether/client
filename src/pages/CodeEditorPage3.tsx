@@ -29,10 +29,9 @@ import { getRandomColor, getRandomName } from '../utils/cursor';
 
 // 인터페이스 설정
 interface Message {
+  nickname: string;
   time: string;
-  sender: 'me' | 'other';
-  text: string;
-  name: string;
+  content: string;
 }
 
 // 👇 파일 핸들러들을 저장할 Map들
@@ -48,6 +47,10 @@ const socketHandlers = new Map<
       update: Uint8Array;
       fileName: string;
     }) => void;
+
+    handleChatUpdate: (msg: Message) => void;
+
+    handleChatSync: (msg: Message[]) => void;
   }
 >();
 
@@ -115,15 +118,6 @@ export default function CodeEditorPage3() {
 
   const isOwner = true;
   const mode = 'problem';
-  const chatMessages = [
-    {
-      nickname: '기영',
-      time: '10:15',
-      content: '여기 문제 조건 다시 확인해주세요.',
-    },
-    { nickname: '민수', time: '10:17', content: '네 알겠습니다!' },
-    { nickname: '하린', time: '10:18', content: '힌트는 어디에 있나요?' },
-  ];
 
   const aiMessages = [
     {
@@ -152,7 +146,24 @@ export default function CodeEditorPage3() {
   const currentFileRef = useRef<string>('index.html');
   const [oldFile, setOldFile] = useState<string>('');
 
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      nickname: '기영',
+      time: '10:15',
+      content: '여기 문제 조건 다시 확인해주세요.',
+    },
+    {
+      nickname: '민수',
+      time: '10:17',
+      content: '네 알겠습니다!',
+    },
+    {
+      nickname: '하린',
+      time: '10:18',
+      content: '힌트는 어디에 있나요?',
+    },
+  ]);
+
   const [input, setInput] = useState('');
 
   // 추가 부분
@@ -167,6 +178,9 @@ export default function CodeEditorPage3() {
       console.log('🔌 Connected to server', socket.id);
       socket.emit('join', { roomId });
     });
+
+    // 채팅 동기화 요청
+    socket.emit('chat-sync', { roomId });
 
     // 기본 파일 초기화
     initYDocIfNeeded(currentFileRef.current, socket);
@@ -281,6 +295,8 @@ export default function CodeEditorPage3() {
         'awareness-update',
         prevSocketHandler.handleAwarenessUpdateToSocket,
       );
+      socket.off('chat', prevSocketHandler.handleChatUpdate);
+      socket.off('chat', prevSocketHandler.handleChatSync);
       console.log('prevSocketHandler 이벤트 제거');
     }
 
@@ -304,7 +320,10 @@ export default function CodeEditorPage3() {
 
     // 🔧 새로운 핸들러 정의 및 등록
     const handleSync = (update: Uint8Array) => {
-      console.log(update);
+      if (!newYdoc) {
+        console.log('설마 없어?');
+      }
+      console.log('Ydoc 동기화:', update);
       Y.applyUpdate(newYdoc, new Uint8Array(update));
     };
 
@@ -339,9 +358,28 @@ export default function CodeEditorPage3() {
       );
     };
 
+    const handleChatUpdate = (newMessage: Message) => {
+      console.log('receivedMessage:', newMessage);
+      setMessages((prev) => [...prev, newMessage]);
+    };
+
+    const handleChatSync = (messages: Message[]) => {
+      console.log('동기화 테스트', messages);
+      if (messages.length == 0) {
+        console.log('동기화 메시지 빈값');
+      }
+      messages.map((message) => {
+        console.log(message.content);
+        setMessages((prev) => [...prev, message]);
+      });
+    };
+
     socket.on('sync', handleSync);
     socket.on('update', handleUpdate);
     socket.on('awareness-update', handleAwarenessUpdateToSocket);
+    socket.on('chat', handleChatUpdate);
+    socket.on('chat-sync', handleChatSync);
+
     // 파일 싱크 요청
     socket.emit('sync', { roomId, fileName });
 
@@ -349,6 +387,8 @@ export default function CodeEditorPage3() {
       handleSync,
       handleUpdate,
       handleAwarenessUpdateToSocket,
+      handleChatUpdate,
+      handleChatSync,
     });
 
     // 기존 이벤트 핸들러 정의 (항상 같은 참조 사용)
@@ -362,15 +402,18 @@ export default function CodeEditorPage3() {
     ydocHandlers.set(fileName, { handleDocUpdate });
 
     const handleAwarenessUpdate = ({ added, updated, removed }: any) => {
+      console.log('awareness update');
+
       const awareness = awarenessMap[fileName];
       const states = awareness.getStates();
       const myState = states.get(awareness.clientID);
       const currentCursor = myState?.cursor;
 
       // 커서가 없는 경우 또는 이전 상태와 동일한 경우 전송하지 않음
+      if (!lastCursorState) return;
+
       if (
         currentCursor &&
-        lastCursorState !== null && // ✅ 명시적 체크
         currentCursor.line === lastCursorState.line &&
         currentCursor.column === lastCursorState.column
       ) {
@@ -569,28 +612,6 @@ export default function CodeEditorPage3() {
     document.head.appendChild(style);
   };
 
-  // ✉️ 채팅 메시지 전송 함수
-  const sendMessage = () => {
-    // if (input.trim() === '') return;
-    // if (!awarenessRef.current) return;
-    // const state = awarenessRef.current.getLocalState();
-    // if (!state) return;
-    // const userName = state.user.name;
-    // const localtime = new Date().toLocaleTimeString();
-    // const message: Message = {
-    //   time: localtime,
-    //   sender: 'me',
-    //   text: input,
-    //   name: '',
-    // };
-    // setMessages((prev) => [...prev, message]);
-    // setInput('');
-    // const socket = socketRef.current;
-    // if (!socket) return;
-    // const newMessage = { ...message, name: userName };
-    // socket.emit('chat', { roomId, newMessage });
-  };
-
   const problemRef = useRef<HTMLTextAreaElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
 
@@ -609,8 +630,25 @@ export default function CodeEditorPage3() {
     console.log('실행');
   };
 
+  // ✉️ 채팅 메시지 전송 함수
   const handleSendChat = () => {
     console.log('채팅:', chatInputRef.current?.value);
+    const content = chatInputRef.current?.value;
+
+    if (!content) return;
+
+    const userName = username;
+    const localtime = new Date().toLocaleTimeString();
+    const newMessage: Message = {
+      time: localtime,
+      content,
+      nickname: userName,
+    };
+    setMessages((prev) => [...prev, newMessage]);
+    setInput('');
+    const socket = socketRef.current;
+    if (!socket) return;
+    socket.emit('chat', { roomId, newMessage });
   };
 
   const handleSelectFile = (file: { fileId: string; filename: string }) => {
@@ -654,8 +692,6 @@ export default function CodeEditorPage3() {
           />
           <div className="flex w-full h-full">
             <div className={isPreviewVisible ? 'w-1/2' : 'w-full'}>
-              {/* <MonacoEditor theme={isDarkMode ? 'dark' : 'light'} /> */}
-
               {/* 모나코 에디터 */}
               <div
                 ref={containerRef}
@@ -711,10 +747,10 @@ export default function CodeEditorPage3() {
             />
             <ChatPanel
               activePanel={activePanel}
-              chatMessages={chatMessages}
+              chatMessages={messages}
               aiMessages={aiMessages}
               inputRef={chatInputRef}
-              onSendChat={sendMessage}
+              onSendChat={handleSendChat}
             />
           </div>
         )}
