@@ -34,7 +34,7 @@ interface Message {
   content: string;
 }
 
-// 👇 파일 핸들러들을 저장할 Map들
+// 소켓 관련 핸들러 저장용 Map
 const socketHandlers = new Map<
   string,
   {
@@ -54,6 +54,7 @@ const socketHandlers = new Map<
   }
 >();
 
+// Y.Doc 업데이트 핸들러 저장 Map
 const ydocHandlers = new Map<
   string,
   {
@@ -61,6 +62,7 @@ const ydocHandlers = new Map<
   }
 >();
 
+// Awareness 이벤트 핸들러 저장 Map
 const awarenessHandlers = new Map<
   string,
   {
@@ -69,13 +71,13 @@ const awarenessHandlers = new Map<
   }
 >();
 
-const ydocs: Record<string, Y.Doc> = {};
-const awarenessMap: Record<string, awarenessProtocol.Awareness> = {};
-const bindingMap: Record<string, MonacoBinding> = {};
-const modelMap: Record<string, monaco.editor.ITextModel> = {};
+const ydocs: Record<string, Y.Doc> = {}; // 파일별 Y.Doc 인스턴스를 저장
+const awarenessMap: Record<string, awarenessProtocol.Awareness> = {}; // 파일별 Awareness 인스턴스를 저장
+const bindingMap: Record<string, MonacoBinding> = {}; // 파일별 MonacoBinding 인스턴스를 저장
+const modelMap: Record<string, monaco.editor.ITextModel> = {}; // 파일별 Monaco 모델 저장
 
-const username = getRandomName();
-const usercolor = getRandomColor();
+const username = getRandomName(); // 사용자 이름 생성 (나중에 변경해야 함)
+const usercolor = getRandomColor(); // 사용자 커서 색상 지정
 
 export default function CodeEditorPage3() {
   const [isPreviewVisible, setIsPreviewVisible] = useState<boolean>(false);
@@ -85,7 +87,10 @@ export default function CodeEditorPage3() {
   const [settingModalOpen, setSettingModalOpen] = useState(false);
   const cursorListenerRef = useRef<monaco.IDisposable | null>(null);
 
-  let lastCursorState: { line: number; column: number } | null = null;
+  let lastCursorState: { line: number; column: number } = {
+    line: 0,
+    column: 0,
+  };
 
   const dummyFileTree: FileNode[] = [
     {
@@ -168,32 +173,29 @@ export default function CodeEditorPage3() {
 
   // 추가 부분
   useEffect(() => {
-    console.log('실행'); // ✅ 소켓이 생성되지 않았다면 최초 1회만 생성
     if (!socketRef.current) {
-      socketRef.current = initSocket();
+      socketRef.current = initSocket(); // 소켓 초기화
     }
     const socket = socketRef.current;
 
     socket.on('connect', () => {
       console.log('🔌 Connected to server', socket.id);
-      socket.emit('join', { roomId });
+      socket.emit('join', { roomId }); // 방 참가 요청
     });
 
     // 채팅 동기화 요청
     socket.emit('chat-sync', { roomId });
 
-    // 기본 파일 초기화
+    // 초기 파일에 대한 Y.Doc 초기화
     initYDocIfNeeded(currentFileRef.current, socket);
-    // switchToFile(currentFile);
 
     // ✅ 브라우저 종료 시 사용자 상태 정리
     const cleanUp = () => {
       // 페이지의 awareness값 삭제
       const oldAwareness = awarenessMap[currentFileRef.current];
-      oldAwareness.setLocalState(null);
-      // 해당 클라이언트의 awareness값을 삭제
-      const socket = socketRef.current;
-      socket?.emit('awareness-remove', { roomId });
+      oldAwareness.setLocalState(null); // 내 커서 상태 제거
+      const socket = socketRef.current; // 해당 클라이언트의 awareness값을 삭제
+      socket?.emit('awareness-remove', { roomId }); // 서버에 상태 제거 요청
     };
 
     window.addEventListener('beforeunload', cleanUp);
@@ -208,7 +210,9 @@ export default function CodeEditorPage3() {
 
   // ✅ 소켓 초기화 함수 (Fast Refresh 대응 없이 단순 생성)
   const initSocket = () => {
-    return io('http://localhost:3002/collab-webpublish', {
+    //https://codetogether.store/collab-webpublish
+    //http://localhost:3002/collab-webpublish
+    return io('https://codetogether.store/collab-webpublish', {
       transports: ['websocket'],
       withCredentials: true,
     });
@@ -244,6 +248,7 @@ export default function CodeEditorPage3() {
     const ytext = ydoc.getText(fileName);
     const model = createMonacoModel(fileName, ytext);
 
+    // 에디터 레퍼런스 생성
     monacoRef.current = monaco.editor.create(containerRef.current!, {
       model,
       theme: 'vs-dark',
@@ -252,6 +257,8 @@ export default function CodeEditorPage3() {
 
     // 👆 커서 리스너 중복 제거 후 등록
     if (cursorListenerRef.current) cursorListenerRef.current.dispose();
+
+    // 커서 변경 시 이벤트 발동
     cursorListenerRef.current = monacoRef.current.onDidChangeCursorPosition(
       (e) => {
         const current = awareness.getLocalState()?.cursor;
@@ -273,6 +280,8 @@ export default function CodeEditorPage3() {
       new Set([monacoRef.current]),
       awareness,
     );
+
+    // 바인딩 저장
     bindingMap[fileName] = binding;
 
     registerSocketEvents(fileName, socket);
@@ -319,6 +328,8 @@ export default function CodeEditorPage3() {
     const newAwareness = awarenessMap[fileName]!;
 
     // 🔧 새로운 핸들러 정의 및 등록
+
+    // Ydoc 문서 동기화 핸들러
     const handleSync = (update: Uint8Array) => {
       if (!newYdoc) {
         console.log('설마 없어?');
@@ -327,10 +338,12 @@ export default function CodeEditorPage3() {
       Y.applyUpdate(newYdoc, new Uint8Array(update));
     };
 
+    // Ydoc 문서 Update
     const handleUpdate = (update: Uint8Array) => {
       Y.applyUpdate(newYdoc, new Uint8Array(update));
     };
 
+    // Awareness 상태 Update
     const handleAwarenessUpdateToSocket = ({
       update,
       fileName,
@@ -342,6 +355,7 @@ export default function CodeEditorPage3() {
         `awareness update - fileName:${fileName} - currentFile:${currentFileRef.current}`,
       );
 
+      // 내 페이지 있는 커서만 보여주기
       if (fileName !== currentFileRef.current) {
         console.log(
           '다른 파일 awareness 업데이터:',
@@ -358,11 +372,13 @@ export default function CodeEditorPage3() {
       );
     };
 
+    // 채팅 업데이트
     const handleChatUpdate = (newMessage: Message) => {
       console.log('receivedMessage:', newMessage);
       setMessages((prev) => [...prev, newMessage]);
     };
 
+    // 채팅 동기화
     const handleChatSync = (messages: Message[]) => {
       console.log('동기화 테스트', messages);
       if (messages.length == 0) {
@@ -374,6 +390,7 @@ export default function CodeEditorPage3() {
       });
     };
 
+    // 이벤트 등록
     socket.on('sync', handleSync);
     socket.on('update', handleUpdate);
     socket.on('awareness-update', handleAwarenessUpdateToSocket);
@@ -383,6 +400,7 @@ export default function CodeEditorPage3() {
     // 파일 싱크 요청
     socket.emit('sync', { roomId, fileName });
 
+    // 핸들러 레퍼런스 저장
     socketHandlers.set(fileName, {
       handleSync,
       handleUpdate,
@@ -397,10 +415,13 @@ export default function CodeEditorPage3() {
       socket.emit('update', { roomId, fileName, update });
     };
 
-    // 👉 새 핸들러 등록
+    // 👉  Ydoc 해들러 등록
     newYdoc.on('update', handleDocUpdate);
+
+    // 핸들러 저장
     ydocHandlers.set(fileName, { handleDocUpdate });
 
+    // Awareness 업데이트 핸들러
     const handleAwarenessUpdate = ({ added, updated, removed }: any) => {
       console.log('awareness update');
 
@@ -409,33 +430,44 @@ export default function CodeEditorPage3() {
       const myState = states.get(awareness.clientID);
       const currentCursor = myState?.cursor;
 
-      // 커서가 없는 경우 또는 이전 상태와 동일한 경우 전송하지 않음
-      if (!lastCursorState) return;
+      console.log('👤 awareness 업데이트 발생');
 
+      console.log('현재 파일:', currentFileRef.current);
       if (
         currentCursor &&
         currentCursor.line === lastCursorState.line &&
         currentCursor.column === lastCursorState.column
       ) {
+        console.log(
+          'currentCursor.line:',
+          currentCursor.line,
+          'currentCursor.column:',
+          currentCursor.column,
+        );
+        console.log(
+          'lastCursorState.line:',
+          lastCursorState.line,
+          'lastCursorState.column:',
+          lastCursorState.column,
+        );
+
         console.log('변동 없음');
         return;
       }
-
-      // 상태 업데이트 진행
-      lastCursorState = currentCursor ?? null;
-
-      console.log('👤 awareness 업데이트 발생');
-
-      console.log('현재 파일:', currentFileRef.current);
 
       const update = awarenessProtocol.encodeAwarenessUpdate(
         newAwareness,
         added.concat(updated, removed),
       );
       socket.emit('awareness-update', { roomId, fileName, update });
+      console.log('awareness broadcast');
+      // 상태 업데이트 진행
+      lastCursorState = currentCursor ?? null;
     };
 
+    // 상태 변화 업데이트 감지
     const handleAwarenessChange = () => {
+      console.log('change 이벤트 발생');
       updateRemoteCursors(newAwareness);
     };
 
@@ -459,13 +491,14 @@ export default function CodeEditorPage3() {
 
     const socket = socketRef.current!;
 
-    // 🔧 이전 바인딩 및 모델 제거
+    // 🔧 이전 바인딩
     if (bindingMap[oldFile]) {
       console.log('binding:', oldFile);
       bindingMap[oldFile].destroy();
       delete bindingMap[oldFile];
     }
 
+    // 이전  모델 제거
     if (modelMap[oldFile]) {
       console.log('model:', oldFile);
       const model = modelMap[oldFile];
