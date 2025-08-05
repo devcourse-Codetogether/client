@@ -2,16 +2,16 @@ import React, { useState } from 'react';
 import CodeTogetherLogo from '../assets/code_together_logo.png';
 import {
   ListBulletIcon,
-  UserGroupIcon,
+  UserIcon,
   CodeBracketIcon,
   CalendarIcon,
-  CalendarDaysIcon,
   ArrowRightIcon,
 } from '@heroicons/react/24/solid';
 import LogModal from '../components/mypage/LogModal';
 import Button from '../components/common/Button';
 import { useNavigate } from 'react-router-dom';
 import { logout } from '../utils/logout';
+import { useUserStore } from '../stores/useUserStore'; // Zustand store
 
 type RoomType = '문제풀이' | '웹편집';
 
@@ -19,9 +19,8 @@ interface Room {
   id: number;
   title: string;
   createdAt: string;
-  participateAt: string;
   language: string;
-  participants: string;
+  creater: string;
   type: RoomType;
 }
 
@@ -30,27 +29,24 @@ const mockRooms: Room[] = [
     id: 1,
     title: 'Python 데이터 분석 스터디',
     createdAt: '2024-07-06',
-    participateAt: '2024-07-25',
     language: 'Python',
-    participants: '5/6',
+    creater: '파이썬 마스터',
     type: '문제풀이',
   },
   {
     id: 2,
     title: 'Node.js 백엔드 개발',
     createdAt: '2024-07-01',
-    participateAt: '2024-07-24',
     language: 'Javascript',
-    participants: '3/4',
+    creater: '백엔드 마스터',
     type: '웹편집',
   },
   {
     id: 3,
     title: '웹 프론트엔드 실습',
     createdAt: '2024-06-30',
-    participateAt: '2024-07-23',
     language: 'HTML/CSS',
-    participants: '2/3',
+    creater: '프론트엔드 마스터',
     type: '웹편집',
   },
 ];
@@ -64,6 +60,8 @@ const MyPage = () => {
     logout(navigate);
   };
 
+  const { user } = useUserStore();
+
   return (
     <div className="bg-gray-100 min-h-screen py-10">
       <div className="max-w-6xl mx-auto px-4">
@@ -76,7 +74,9 @@ const MyPage = () => {
               className="w-16 h-16 rounded-full"
             />
             <div>
-              <h2 className="text-lg font-bold text-gray-800">코딩마스터</h2>
+              <h2 className="text-lg font-bold text-gray-800">
+                {user?.nickname || 'Code Together'}
+              </h2>
               <p className="text-sm text-gray-500">master@codetogether.com</p>
             </div>
           </div>
@@ -105,25 +105,17 @@ const MyPage = () => {
                 </h4>
                 <div className="flex gap-2 mb-1">
                   <CalendarIcon className="w-4 h-4 text-gray-800 mt-0.5" />
-                  <p className="text-sm text-gray-500">
-                    생성일: {room.createdAt}
-                  </p>
-                </div>
-                <div className="flex gap-2 mb-1">
-                  <CalendarDaysIcon className="w-4 h-4 text-gray-800 mt-0.5" />
-                  <p className="text-sm text-gray-500">
-                    참여일: {room.participateAt}
-                  </p>
+                  <p className="text-sm text-gray-500">{room.createdAt}</p>
                 </div>
                 <div className="flex gap-2 mb-1">
                   <CodeBracketIcon className="w-4 h-4 text-gray-800 mt-0.5" />
                   <p className="text-sm text-gray-500">{room.language}</p>
                 </div>
                 <div className="flex gap-2 mb-1">
-                  <UserGroupIcon className="w-4 h-4 text-gray-800 mt-0.5" />
-                  <p className="text-sm text-gray-500">{room.participants}명</p>
+                  <UserIcon className="w-4 h-4 text-gray-800 mt-0.5" />
+                  <p className="text-sm text-gray-500">{room.creater}</p>
                 </div>
-                <div className="flex justify-between items-center mt-3">
+                <div className="flex justify-between items-center mt-4">
                   <div
                     className={`text-xs font-bold rounded-full h-6 flex items-center justify-center ${
                       room.type === '문제풀이'
