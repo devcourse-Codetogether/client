@@ -1,4 +1,4 @@
-import { HTMLAttributes, useState } from 'react';
+import { type HTMLAttributes, useState } from 'react';
 import { ChevronUpIcon, ChevronDownIcon } from '@heroicons/react/20/solid';
 
 interface Option {

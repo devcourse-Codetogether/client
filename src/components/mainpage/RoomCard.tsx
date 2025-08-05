@@ -8,9 +8,9 @@ interface RoomCardProps {
   type?: string;
   id?: string;
   techStack: string;
-  status: 'active' | 'inactive';
   category: string;
   className?: string;
+  onJoin?: () => void;
 }
 
 const RoomCard: React.FC<RoomCardProps> = ({
@@ -18,9 +18,9 @@ const RoomCard: React.FC<RoomCardProps> = ({
   type,
   id,
   techStack,
-  status,
   category,
   className = '',
+  onJoin,
 }) => {
   return (
     <div
@@ -48,24 +48,13 @@ const RoomCard: React.FC<RoomCardProps> = ({
 
       {/* 상태 및 입장 버튼 */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <div
-            className={`w-2 h-2 rounded-full mr-2 ${
-              status === 'active' ? 'bg-green-500' : 'bg-gray-400'
-            }`}
-          />
-          <span className="text-sm text-gray-600 capitalize">
-            {status === 'active' ? '활성' : '비활성'}
-          </span>
-        </div>
-        {/* 데이터 받기 */}
-        <Link to="/editor" state={{ roomId: id, type: type }}>
-          <Button
-            text="입장하기"
-            color="primary"
-            className="text-sm px-4 py-2"
-          />
-        </Link>
+        <div className="flex items-center"></div>
+        <Button
+          text="입장하기"
+          color="primary"
+          className="text-sm px-4 py-2"
+          onClick={onJoin}
+        />
       </div>
     </div>
   );

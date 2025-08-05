@@ -3,6 +3,7 @@ import MainPage from './pages/MainPage';
 import ModalTestPage from './pages/ModalTestPage';
 import LoginPage from './pages/LoginPage';
 import MyPage from './pages/MyPage';
+import KakaoRedirectPage from './pages/KakaoRedirectionPage';
 import CodeEditorPage from './pages/CodeEditorPage';
 
 const router = createBrowserRouter([
@@ -17,6 +18,10 @@ const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />,
+  },
+  {
+    path: '/oauth/kakao/callback',
+    element: <KakaoRedirectPage />,
   },
   {
     path: '/mypage',
