@@ -150,7 +150,7 @@ export default function CodeEditorPage3() {
   const [messages, setMessages] = useState<Message[]>([]);
 
   const [input, setInput] = useState('');
-
+  console.log(input);
   // 추가 부분
   useEffect(() => {
     if (!socketRef.current) {
