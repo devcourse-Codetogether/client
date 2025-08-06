@@ -26,8 +26,7 @@ interface LogModalProps {
     title: string;
     createdAt: string;
     language: string;
-    participants: string;
-    type: string;
+    mode: string;
   };
   onClose: () => void;
 }
@@ -163,9 +162,6 @@ const LogModal: React.FC<LogModalProps> = ({ room, onClose }) => {
           ) : (
             // 채팅 로그
             <div className="space-y-2 ml-2 mr-2">
-              <div className="text-center text-xs text-gray-500 mb-2">
-                방을 생성했습니다.
-              </div>
               {mockChats.map((chat) => (
                 <div
                   key={chat.id}
@@ -176,9 +172,6 @@ const LogModal: React.FC<LogModalProps> = ({ room, onClose }) => {
                   <p className="text-gray-700 mt-2">{chat.message}</p>
                 </div>
               ))}
-              <p className="text-center text-xs text-gray-400 mt-1">
-                방이 종료되었습니다.
-              </p>
             </div>
           )}
         </div>
