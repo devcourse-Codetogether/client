@@ -1,23 +1,36 @@
-import React, { useState } from 'react';
+// src/components/mypage/LogModal.tsx
+import React, { useEffect, useState } from 'react';
 import {
   XMarkIcon,
   CodeBracketIcon,
   ChatBubbleLeftRightIcon,
 } from '@heroicons/react/24/solid';
+import api from '../../utils/api';
+import CodeLogItem from './CodeLogItem';
+import ChatLogItem from './ChatLogItem';
 
-interface LogEntry {
+interface CodeLog {
   id: number;
-  author: string;
-  timestamp: string;
+  sessionId: number;
+  senderId: number;
+  code: string;
   language: string;
-  content: string;
+  createdAt: string;
+  sender: {
+    nickname: string;
+  };
 }
 
-interface ChatEntry {
+interface ChatLog {
   id: number;
-  author: string;
-  timestamp: string;
+  sessionId: number;
+  senderId: number;
   message: string;
+  createdAt: string;
+  sender: {
+    id: number;
+    nickname: string;
+  };
 }
 
 interface LogModalProps {
@@ -31,59 +44,31 @@ interface LogModalProps {
   onClose: () => void;
 }
 
-const mockLogs: LogEntry[] = [
-  {
-    id: 1,
-    author: '코딩마스터',
-    timestamp: '2024-07-18 14:30:25',
-    language: 'javascript',
-    content: 'function App() {\n  return <div>Hello World</div>;\n}',
-  },
-  {
-    id: 2,
-    author: '개발자123',
-    timestamp: '2024-07-18 14:32:10',
-    language: 'javascript',
-    content:
-      '// 컴포넌트 최적화를 위해 useCallback 추가...\nconst memoizedFn = useCallback(() => {}, []);',
-  },
-];
-
-const mockChats: ChatEntry[] = [
-  {
-    id: 1,
-    author: '개발자123',
-    timestamp: '2024-07-18 14:21:15',
-    message: '안녕하세요! React 프로젝트를 같이 하게 되어 기쁩니다.',
-  },
-  {
-    id: 2,
-    author: '코딩마스터',
-    timestamp: '2024-07-18 14:27:30',
-    message: '환영합니다! 오늘은 간단한 카운터 앱을 만들어보겠습니다.',
-  },
-  {
-    id: 3,
-    author: '프론트엔드맨',
-    timestamp: '2024-07-18 14:28:45',
-    message: '기본 구조 잘 만드셨네요. 최적화 부분을 추가해보겠습니다.',
-  },
-  {
-    id: 4,
-    author: '개발자123',
-    timestamp: '2024-07-18 14:33:20',
-    message: 'useCallback 사용 좋은 아이디어네요!',
-  },
-  {
-    id: 5,
-    author: '프론트엔드맨',
-    timestamp: '2024-07-18 14:36:00',
-    message: '스타일링도 추가했습니다. 어떠신가요?',
-  },
-];
-
 const LogModal: React.FC<LogModalProps> = ({ room, onClose }) => {
   const [activeTab, setActiveTab] = useState<'code' | 'chat'>('code');
+  const [codeLogs, setCodeLogs] = useState<CodeLog[]>([]);
+  const [chatLogs, setChatLogs] = useState<ChatLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchLogs = async () => {
+      setIsLoading(true);
+      try {
+        const [codeRes, chatRes] = await Promise.all([
+          api.get(`/users/me/sessions/${room.id}/code`),
+          api.get(`/users/me/sessions/${room.id}/chats`),
+        ]);
+        setCodeLogs(codeRes.data);
+        setChatLogs(chatRes.data.reverse());
+      } catch (err) {
+        console.error('로그 가져오기 실패:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchLogs();
+  }, [room.id]);
 
   return (
     <div
@@ -100,7 +85,9 @@ const LogModal: React.FC<LogModalProps> = ({ room, onClose }) => {
             <h2 className="text-lg font-semibold text-gray-800">
               {room.title}
             </h2>
-            <p className="text-sm text-gray-500">{room.createdAt}</p>
+            <p className="text-sm text-gray-500">
+              {new Date(room.createdAt).toISOString().slice(0, 10)}
+            </p>
           </div>
           <button onClick={onClose}>
             <XMarkIcon className="w-6 h-6 text-gray-500 hover:text-gray-800 cursor-pointer" />
@@ -136,42 +123,27 @@ const LogModal: React.FC<LogModalProps> = ({ room, onClose }) => {
 
         {/* 내용 */}
         <div className="p-4 h-[600px] overflow-y-auto space-y-4">
-          {activeTab === 'code' ? (
-            mockLogs.map((log) => (
-              // 코드 로그
-              <div
-                key={log.id}
-                className="rounded overflow-hidden border border-primary-100 ml-2 mr-2"
-              >
-                <div className="flex justify-between items-center bg-gray-50 px-4 py-2">
-                  <div className="flex gap-2 text-sm text-gray-700">
-                    <span className="font-semibold">{log.author}</span>
-                    <span className="text-xs text-gray-400 mt-0.5">
-                      {log.timestamp}
-                    </span>
-                  </div>
-                  <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded">
-                    {log.language}
-                  </span>
-                </div>
-                <div className="bg-gray-900 p-4 text-white text-sm font-mono">
-                  <pre className="whitespace-pre-wrap">{log.content}</pre>
-                </div>
+          {isLoading ? (
+            <div className="text-center text-gray-500 mt-10">
+              불러오는 중...
+            </div>
+          ) : activeTab === 'code' ? (
+            codeLogs.length > 0 ? (
+              codeLogs.map((log) => <CodeLogItem key={log.id} log={log} />)
+            ) : (
+              <div className="text-center text-gray-400">
+                코드 로그가 없습니다.
               </div>
-            ))
-          ) : (
-            // 채팅 로그
+            )
+          ) : chatLogs.length > 0 ? (
             <div className="space-y-2 ml-2 mr-2">
-              {mockChats.map((chat) => (
-                <div
-                  key={chat.id}
-                  className="rounded px-4 py-2 border border-primary-100 text-xs w-fit max-w-[75%]"
-                >
-                  <span className="text-gray-800 font-bold">{chat.author}</span>
-                  <span className="text-gray-400 ml-2">{chat.timestamp}</span>
-                  <p className="text-gray-700 mt-2">{chat.message}</p>
-                </div>
+              {chatLogs.map((chat) => (
+                <ChatLogItem key={chat.id} chat={chat} />
               ))}
+            </div>
+          ) : (
+            <div className="text-center text-gray-400">
+              채팅 로그가 없습니다.
             </div>
           )}
         </div>
