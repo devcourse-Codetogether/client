@@ -32,7 +32,7 @@ const LoginPage = () => {
           onClick={handleKakaoLogin}
           className="cursor-pointer"
         >
-          <img src={KakaoLoginLogo} alt="Kakao Login" />
+          <img src={KakaoLoginLogo} alt="Kakao Login Button" />
         </button>
       </div>
 
@@ -45,12 +45,6 @@ const LoginPage = () => {
           회원가입은 로그인과 동시에 진행됩니다
         </span>
       </p>
-
-      <div className="flex gap-2 text-xs text-gray-400 mt-2">
-        <span className="cursor-pointer">이용약관</span>
-        {' · '}
-        <span className="cursor-pointer">개인정보처리방침</span>
-      </div>
 
       <div className="mt-10 flex flex-col items-center">
         <div className="border border-primary-100 bg-white p-4 mb-4 w-92 text-center">
