@@ -72,7 +72,7 @@ export default function Sidebar({
             </div>
             <Button
               icon={<UserPlusIcon className="w-4 h-4" />}
-              text="초대하기"
+              text="공유하기"
               onClick={onInviteClick}
               color="light"
               className="text-sm dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
@@ -93,9 +93,6 @@ export default function Sidebar({
                 </div>
                 <div className="text-sm leading-[1.5]">
                   <div className="font-medium">{user.nickname}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    작업 중: {user.line}번째 줄
-                  </div>
                 </div>
               </div>
             ))}
