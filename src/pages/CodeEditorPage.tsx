@@ -17,6 +17,7 @@ import {
 } from '@heroicons/react/24/solid';
 import { useLocation } from 'react-router-dom';
 import { postAIQuestion, postCodeReview } from '../services/aiChat';
+import { executeCode, saveCode } from '../services/code';
 import { useUserStore } from '../stores/useUserStore';
 
 import * as Y from 'yjs';
@@ -155,12 +156,14 @@ export default function CodeEditorPage() {
   ]);
 
   // 페이지에서 넘어온 데이터
+  console.log(location.state);
   const {
     id: roomId,
     language,
     mode,
     ownerId,
     participants: users,
+    title,
   } = location.state || {};
 
   const fileTree: FileNode[] = getFileTree(mode, language);
@@ -621,6 +624,8 @@ export default function CodeEditorPage() {
     if (filename.endsWith('.html')) return 'html';
     if (filename.endsWith('.css')) return 'css';
     if (filename.endsWith('.js')) return 'javascript';
+    if (filename.endsWith('.java')) return 'java';
+    if (filename.endsWith('.py')) return 'python';
     return 'plaintext';
   };
 
@@ -659,10 +664,6 @@ export default function CodeEditorPage() {
   };
 
   const consoleRef = useRef<ConsoleBoxHandle>(null);
-
-  const handleRun = () => {
-    console.log('실행');
-  };
 
   const handleSendChat = () => {
     const content = chatInputRef.current?.value;
@@ -768,10 +769,38 @@ export default function CodeEditorPage() {
     }
   };
 
+  const handleExecuteCode = async () => {
+    if (!roomId || !language || !monacoRef.current) return;
+
+    const code = monacoRef.current.getValue();
+
+    try {
+      const output = await executeCode(roomId, language, code, '');
+      consoleRef.current?.appendLog(`🟢 실행 결과:\n${output}`);
+    } catch (err) {
+      console.error('❌ 코드 실행 오류:', err);
+      consoleRef.current?.appendLog('❌ 코드 실행 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleSaveCode = async () => {
+    if (!roomId || !language || !monacoRef.current) return;
+
+    const code = monacoRef.current.getValue();
+
+    try {
+      await saveCode(roomId, language, code);
+      consoleRef.current?.appendLog('💾 코드가 저장되었습니다.');
+    } catch (err) {
+      console.error('❌ 코드 저장 오류:', err);
+      consoleRef.current?.appendLog('❌ 코드 저장 중 오류가 발생했습니다.');
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-start w-screen h-screen bg-gray-100 dark:bg-black text-black dark:text-white transition-colors min-w-0">
       <Header
-        filename={currentFileRef.current}
+        filename={title}
         isOwner={ownerId === userId}
         onToggleDarkMode={handleThemeToggle}
         onSettingClick={() => setSettingModalOpen(true)}
@@ -782,6 +811,7 @@ export default function CodeEditorPage() {
           users={users}
           className="border-r border-gray-200 dark:border-gray-700"
           onInviteClick={handleInvite}
+          onSaveClick={handleSaveCode}
           currentFile={currentFileRef.current}
           onSelectFile={handleSelectFile}
         />
@@ -790,7 +820,7 @@ export default function CodeEditorPage() {
             mode={mode === '문제풀이' ? 'problem' : 'web'}
             showPreview={isPreviewVisible}
             onTogglePreview={() => setIsPreviewVisible((prev) => !prev)}
-            onRunCode={handleRun}
+            onRunCode={handleExecuteCode}
           />
           <div className="flex w-full flex-1 min-h-0">
             <div className={`${isPreviewVisible ? 'w-1/2' : 'w-full'} min-h-0`}>
