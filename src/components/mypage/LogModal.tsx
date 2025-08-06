@@ -26,7 +26,7 @@ interface LogModalProps {
     title: string;
     createdAt: string;
     language: string;
-    type: string;
+    mode: string;
   };
   onClose: () => void;
 }
