@@ -26,7 +26,7 @@ import * as monaco from 'monaco-editor';
 
 import * as awarenessProtocol from 'y-protocols/awareness.js';
 
-import { getRandomColor, getRandomName } from '../utils/cursor';
+import { getRandomColor } from '../utils/cursor';
 
 // 인터페이스 설정
 interface Message {
@@ -77,7 +77,6 @@ const awarenessMap: Record<string, awarenessProtocol.Awareness> = {}; // 파일�
 const bindingMap: Record<string, MonacoBinding> = {}; // 파일별 MonacoBinding 인스턴스를 저장
 const modelMap: Record<string, monaco.editor.ITextModel> = {}; // 파일별 Monaco 모델 저장
 
-const username = getRandomName(); // 사용자 이름 생성 (나중에 변경해야 함)
 const usercolor = getRandomColor(); // 사용자 커서 색상 지정
 
 export default function CodeEditorPage3() {
@@ -87,6 +86,8 @@ export default function CodeEditorPage3() {
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [settingModalOpen, setSettingModalOpen] = useState(false);
   const cursorListenerRef = useRef<monaco.IDisposable | null>(null);
+
+  const username = 'a';
 
   let lastCursorState: { line: number; column: number } = {
     line: 0,
@@ -122,8 +123,6 @@ export default function CodeEditorPage3() {
     { id: 3, nickname: '예람', line: 87 },
   ];
 
-  const mode = 'problem';
-
   const aiMessages = [
     {
       nickname: 'AI 도우미',
@@ -136,8 +135,8 @@ export default function CodeEditorPage3() {
   const location = useLocation();
 
   // 페이지에서 넘어온 데이터
-  const { roomId, isOwner } = location.state || {};
-
+  const { roomId, mode, isOwner } = location.state || {};
+  console.log(mode);
   // 모나코, yjs, awareness, socket io
   const monacoRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null); // Monaco 인스턴스
   const socketRef = useRef<Socket | null>(null);
@@ -149,8 +148,6 @@ export default function CodeEditorPage3() {
 
   const [messages, setMessages] = useState<Message[]>([]);
 
-  const [input, setInput] = useState('');
-  console.log(input);
   // 추가 부분
   useEffect(() => {
     if (!socketRef.current) {
@@ -645,6 +642,7 @@ export default function CodeEditorPage3() {
   const handleSendChat = async () => {
     const content = chatInputRef.current?.value;
     if (!content) return;
+    chatInputRef.current!.value = '';
 
     const localtime = new Date().toLocaleTimeString();
     const newMessage: Message = {
@@ -654,7 +652,6 @@ export default function CodeEditorPage3() {
     };
 
     setMessages((prev) => [...prev, newMessage]);
-    setInput('');
 
     if (activePanel === 'chat') {
       const socket = socketRef.current;
@@ -662,14 +659,8 @@ export default function CodeEditorPage3() {
       socket.emit('chat', { roomId, newMessage });
     } else if (activePanel === 'ai') {
       try {
-        const token = localStorage.getItem('token'); // 또는 다른 방식으로 accessToken
-        if (!token) {
-          console.error('토큰이 없습니다.');
-          return;
-        }
-
-        const response = await postAIChat(token, roomId, {
-          mode: 'question', // 또는 'review' 선택 가능 (현재는 질문으로 처리)
+        const response = await postAIChat(roomId, {
+          mode: 'question',
           content,
         });
 
@@ -707,6 +698,18 @@ export default function CodeEditorPage3() {
     }
   };
 
+  const handleInvite = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      alert('방 주소가 클립보드에 복사되었습니다!');
+    } catch (err) {
+      console.error('클립보드 복사 실패:', err);
+      alert(
+        '복사에 실패했습니다. 브라우저가 클립보드를 지원하는지 확인하세요.',
+      );
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-start w-screen h-screen bg-gray-100 dark:bg-black text-black dark:text-white transition-colors min-w-0">
       <Header
@@ -719,8 +722,8 @@ export default function CodeEditorPage3() {
         <Sidebar
           fileTree={dummyFileTree}
           users={users}
-          className="border border-gray-200 dark:border-gray-700"
-          onInviteClick={() => setInviteModalOpen(true)}
+          className="border-r border-gray-200 dark:border-gray-700"
+          onInviteClick={handleInvite}
           currentFile={currentFileRef.current}
           onSelectFile={handleSelectFile}
         />
@@ -731,29 +734,27 @@ export default function CodeEditorPage3() {
             onTogglePreview={() => setIsPreviewVisible((prev) => !prev)}
             onRunCode={handleRun}
           />
-          <div className="flex w-full h-full">
-            <div className={isPreviewVisible ? 'w-1/2' : 'w-full'}>
-              {/* 모나코 에디터 */}
+          <div className="flex w-full flex-1 min-h-0">
+            <div className={`${isPreviewVisible ? 'w-1/2' : 'w-full'} min-h-0`}>
               <div
                 ref={containerRef}
-                style={{ height: '500px', border: '1px solid #ccc' }}
+                className="w-full h-full border border-gray-200 dark:border-gray-700"
               />
             </div>
             {isPreviewVisible && (
-              <div className="w-1/2 h-full bg-gray-0 dark:bg-black p-4 overflow-y-auto">
+              <div className="w-1/2 h-full bg-white dark:bg-black p-4 overflow-y-auto border-l border-gray-200 dark:border-gray-700">
                 {mode === 'problem' ? (
-                  <div className="h-full bg-gray-0 dark:bg-black p-4 overflow-y-auto">
-                    <ProblemPreview textareaRef={problemRef} />
-                  </div>
+                  <ProblemPreview textareaRef={problemRef} />
                 ) : (
-                  <>HTML 미리보기</>
+                  <div>HTML 미리보기</div>
                 )}
               </div>
             )}
           </div>
-          <div className="flex flex-row justify-end items-center bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 py-3 px-3 gap-3">
+
+          <div className="flex flex-row justify-end items-center bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-3 px-3 gap-3">
             <ChatBubbleLeftRightIcon
-              className={`w-4 h-4 mr-1 text-sm cursor-pointer ${
+              className={`w-4 h-4 cursor-pointer ${
                 activePanel === 'chat'
                   ? 'text-primary-500'
                   : 'text-gray-700 dark:text-gray-100'
@@ -761,7 +762,7 @@ export default function CodeEditorPage3() {
               onClick={() => togglePanel('chat')}
             />
             <LightBulbIcon
-              className={`w-4 h-4 mr-1 text-sm cursor-pointer ${
+              className={`w-4 h-4 cursor-pointer ${
                 activePanel === 'ai'
                   ? 'text-secondary-500'
                   : 'text-gray-700 dark:text-gray-100'
@@ -770,14 +771,15 @@ export default function CodeEditorPage3() {
             />
           </div>
 
-          <div className="flex flex-col bg-gray-100 dark:bg-gray-800">
-            <div className="flex flex-row justify-between items-center bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 py-3 px-3">
-              <div>콘솔</div>
-              <TrashIcon className="w-4 h-4 mr-1 text-gray-700 dark:text-primary-100 text-sm" />
+          <div className="flex flex-col bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex flex-row justify-between items-center py-3 px-3">
+              <div className="text-sm font-medium">콘솔</div>
+              <TrashIcon className="w-4 h-4 text-gray-700 dark:text-primary-100 cursor-pointer" />
             </div>
             <ConsoleBox consoleRef={consoleRef} />
           </div>
         </div>
+
         {activePanel && (
           <div className="w-[320px] h-full bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700 shrink-0 flex flex-col">
             <PanelTabHeader
@@ -800,19 +802,32 @@ export default function CodeEditorPage3() {
       <Modal
         isOpen={inviteModalOpen}
         onClose={() => setInviteModalOpen(false)}
-        title="팀원 초대하기"
-        confirmText="초대하기"
-        cancelText="취소"
-        onConfirm={() => {
+        title="방 주소 복사"
+        confirmText="복사하기"
+        cancelText="닫기"
+        onConfirm={async () => {
+          try {
+            const url = window.location.href;
+            await navigator.clipboard.writeText(url);
+            alert('방 주소가 클립보드에 복사되었습니다.');
+          } catch (err) {
+            console.error('클립보드 복사 실패:', err);
+            alert(
+              '복사에 실패했습니다. 브라우저가 클립보드를 지원하는지 확인하세요.',
+            );
+          }
           setInviteModalOpen(false);
-          alert('초대 전송');
         }}
         onCancel={() => setInviteModalOpen(false)}
       >
-        <TextField
-          label="이메일 주소"
-          placeholder="초대할 팀원의 이메일을 입력하세요."
-        />
+        <div className="text-sm text-gray-700 dark:text-gray-200">
+          아래 버튼을 누르면 방 주소가 클립보드에 복사됩니다.
+          <br />
+          복사된 주소를 다른 사용자에게 공유하세요.
+          <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-800 border rounded text-xs break-all">
+            {`${window.location.origin}/code/${roomId}`}
+          </div>
+        </div>
       </Modal>
 
       <Modal
@@ -827,7 +842,7 @@ export default function CodeEditorPage3() {
         }}
         onCancel={() => setSettingModalOpen(false)}
       >
-        <div className="text-sm text-red-500"></div>
+        <div className="text-sm text-red-500" />
       </Modal>
     </div>
   );

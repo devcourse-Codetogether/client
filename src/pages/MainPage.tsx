@@ -106,7 +106,7 @@ const MainPage: React.FC = () => {
       navigate('/editor', {
         state: {
           roomId: sessionId,
-          type: 'guest',
+          type: 'unknown',
           isOwner: false,
         },
       });

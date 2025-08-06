@@ -1,7 +1,6 @@
-import axios from 'axios';
+import api from '../utils/api';
 
 export const postAIChat = async (
-  token: string,
   sessionId: number,
   data: { mode: 'review' | 'question'; content: string },
 ) => {
@@ -11,14 +10,6 @@ export const postAIChat = async (
       : data.content;
 
   console.log(prompt);
-  const res = await axios.post(
-    `${import.meta.env.VITE_API_BASE_URL}/sessions/${sessionId}/ai/review`,
-    { prompt },
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    },
-  );
+  const res = await api.post(`/sessions/${sessionId}/ai/review`, { prompt });
   return res.data;
 };
