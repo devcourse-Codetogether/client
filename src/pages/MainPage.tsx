@@ -133,7 +133,7 @@ const MainPage: React.FC = () => {
                 <RoomCard
                   key={session.id}
                   title={session.title}
-                  techStack={`</> ${session.language}`}
+                  techStack={session.language}
                   category={session.mode}
                   onJoin={() => handleJoinSession(session.id)}
                 />
