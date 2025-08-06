@@ -1,7 +1,6 @@
 import type { HTMLAttributes } from 'react';
 import {
   DocumentCheckIcon,
-  FolderPlusIcon,
   UserGroupIcon,
   UserPlusIcon,
 } from '@heroicons/react/24/solid';
@@ -19,6 +18,7 @@ interface SidebarProps extends HTMLAttributes<HTMLDivElement> {
   fileTree: FileNode[];
   users: User[];
   onInviteClick?: () => void;
+  onSaveClick?: () => void;
   currentFile: string;
   onSelectFile: (file: { fileId: string; filename: string }) => void;
 }
@@ -37,6 +37,7 @@ export default function Sidebar({
   users,
   className = '',
   onInviteClick,
+  onSaveClick,
   currentFile,
   onSelectFile,
   ...props
@@ -49,8 +50,10 @@ export default function Sidebar({
       <div className="flex flex-row justify-between items-center">
         <div>파일 탐색기</div>
         <div className="flex flex-row gap-1 items-center">
-          <DocumentCheckIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-          <FolderPlusIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+          <DocumentCheckIcon
+            onClick={onSaveClick}
+            className="w-4 h-4 text-gray-600 dark:text-gray-400 cursor-pointer"
+          />
         </div>
       </div>
       <div className="flex flex-col justify-between w-full h-full mt-4">
