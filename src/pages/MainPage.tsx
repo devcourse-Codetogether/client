@@ -12,17 +12,15 @@ import RoomCard from '../components/mainpage/RoomCard';
 import Button from '../components/common/Button';
 import CreateRoomModal from '../components/mainpage/CreateRoomModal';
 import FilterModal from '../components/mainpage/FilterModal';
-import { createSession, getSessionList, joinSession } from '../api/session';
-
-export interface Session {
-  id: number;
-  title: string;
-  language: string;
-  mode: '문제풀이' | '웹편집';
-  isEnded: boolean;
-}
+import {
+  createSession,
+  getSessionList,
+  joinSession,
+} from '../services/session';
+import type { Session, SessionDetail } from '../services/session';
 
 const MainPage: React.FC = () => {
+  const navigate = useNavigate();
   const [searchValue, setSearchValue] = useState('');
   const [isCreateRoomModalOpen, setIsCreateRoomModalOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -94,19 +92,20 @@ const MainPage: React.FC = () => {
         return;
       }
 
-      await joinSession(sessionId);
-      alert('세션에 참여했습니다!');
-      // TODO: 세션 상세 페이지로 이동
-      // 임시 navigate
-      navigate('/editor', {
-        state: {
-          roomId: sessionId,
-          type: 'unknown',
-          isOwner: false,
-        },
-      });
+      // 세션 참여 API 호출 - 상세 정보 받기
+      const sessionDetail: SessionDetail = await joinSession(token, sessionId);
+
+      // 이미 참여 중인 경우 처리
+      if (sessionDetail.alreadyJoined) {
+        alert('이미 참여 중인 세션입니다.');
+      } else {
+        alert('세션에 참여했습니다!');
+      }
+
+      // 성공 시 CodeEditorPage로 이동
+      navigate(`/editor/${sessionId}`);
     } catch (error) {
-      console.error(error);
+      console.error('세션 참여 에러:', error);
       alert('세션 참여 중 오류가 발생했습니다.');
     }
   };

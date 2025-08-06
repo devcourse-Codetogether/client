@@ -1,5 +1,28 @@
 import api from '../utils/api';
 
+export interface Participant {
+  id: number;
+  nickname: string;
+}
+
+export interface SessionDetail {
+  id: number;
+  title: string;
+  mode: string;
+  language: string;
+  ownerId: number;
+  alreadyJoined: boolean;
+  participants: Participant[];
+}
+
+export interface Session {
+  id: number;
+  title: string;
+  language: string;
+  mode: '문제풀이' | '웹편집';
+  isEnded: boolean;
+}
+
 export const createSession = async (data: {
   title: string;
   mode: string;
@@ -16,5 +39,4 @@ export const getSessionList = async (page = 1, limit = 20) => {
 
 export const joinSession = async (sessionId: number) => {
   const res = await api.post(`/sessions/${sessionId}/join`);
-  return res.data;
 };

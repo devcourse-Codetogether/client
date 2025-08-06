@@ -28,7 +28,7 @@ const router = createBrowserRouter([
     element: <MyPage />,
   },
   {
-    path: '/editor',
+    path: '/editor/:sessionId',
     element: <CodeEditorPage />,
   },
 ]);
