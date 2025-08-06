@@ -12,32 +12,14 @@ import RoomCard from '../components/mainpage/RoomCard';
 import Button from '../components/common/Button';
 import CreateRoomModal from '../components/mainpage/CreateRoomModal';
 import FilterModal from '../components/mainpage/FilterModal';
-import {
-  createSession,
-  getSessionList,
-  joinSession,
-} from '../services/session';
-import type { Session } from '../services/session';
+import { useSession } from '../hooks/useSession';
 
 const MainPage: React.FC = () => {
   const navigate = useNavigate();
+  const { sessionList, loading, error, createRoom, joinRoom } = useSession();
   const [searchValue, setSearchValue] = useState('');
   const [isCreateRoomModalOpen, setIsCreateRoomModalOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-  const [sessionList, setSessionList] = useState<Session[]>([]);
-
-  const fetchSessions = async () => {
-    try {
-      const data = await getSessionList();
-      setSessionList(data);
-    } catch (error) {
-      console.error('세션 목록 조회 실패:', error);
-    }
-  };
-
-  useEffect(() => {
-    fetchSessions();
-  }, []);
 
   const handleSearch = (value: string) => {
     alert(`검색어: ${value}`);
@@ -64,10 +46,9 @@ const MainPage: React.FC = () => {
     language: string;
   }) => {
     try {
-      const result = await createSession(roomData);
+      const result = await createRoom(roomData);
       alert(`새 방이 생성되었습니다!\n방 ID: ${result.id}`);
       setIsCreateRoomModalOpen(false);
-      await fetchSessions();
     } catch (error) {
       console.error(error);
       alert('방 생성 중 오류가 발생했습니다.');
@@ -76,7 +57,7 @@ const MainPage: React.FC = () => {
 
   const handleJoinSession = async (sessionId: number) => {
     try {
-      await joinSession(sessionId);
+      await joinRoom(sessionId);
       navigate(`/editor/${sessionId}`);
     } catch (error) {
       console.error('세션 참여 에러:', error);
@@ -133,15 +114,31 @@ const MainPage: React.FC = () => {
 
           {/* 동적 방 카드 그리드 */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sessionList.map((session) => (
-              <RoomCard
-                key={session.id}
-                title={session.title}
-                techStack={`</> ${session.language}`}
-                category={session.mode}
-                onJoin={() => handleJoinSession(session.id)}
-              />
-            ))}
+            {loading ? (
+              <div className="col-span-full text-center py-8">
+                <div className="text-gray-600">세션 목록을 불러오는 중...</div>
+              </div>
+            ) : error ? (
+              <div className="col-span-full text-center py-8">
+                <div className="text-red-600">{error}</div>
+              </div>
+            ) : sessionList.length === 0 ? (
+              <div className="col-span-full text-center py-8">
+                <div className="text-gray-600">
+                  현재 활성화된 세션이 없습니다.
+                </div>
+              </div>
+            ) : (
+              sessionList.map((session) => (
+                <RoomCard
+                  key={session.id}
+                  title={session.title}
+                  techStack={`</> ${session.language}`}
+                  category={session.mode}
+                  onJoin={() => handleJoinSession(session.id)}
+                />
+              ))
+            )}
           </div>
 
           {/* 더 많은 방 보기 */}
