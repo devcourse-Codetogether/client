@@ -1,5 +1,6 @@
 import React from 'react';
 import { UserCircleIcon } from '@heroicons/react/24/outline';
+import logo from '../../assets/code_together_logo.png';
 
 const Header: React.FC = () => {
   return (
@@ -8,11 +9,7 @@ const Header: React.FC = () => {
         <div className="flex justify-between items-center h-16">
           {/* 로고 */}
           <div className="flex items-center">
-            <img
-              src="/src/assets/code_together_logo.png"
-              alt="CodeTogether"
-              className="h-8 w-auto"
-            />
+            <img src={logo} alt="CodeTogether" className="h-8 w-auto" />
           </div>
 
           {/* 오른쪽 아이콘들 */}

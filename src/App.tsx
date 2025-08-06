@@ -1,4 +1,3 @@
-import React from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import MainPage from './pages/MainPage';
 import ModalTestPage from './pages/ModalTestPage';
@@ -29,7 +28,7 @@ const router = createBrowserRouter([
     element: <MyPage />,
   },
   {
-    path: '/editor',
+    path: '/editor/:sessionId',
     element: <CodeEditorPage />,
   },
 ]);
