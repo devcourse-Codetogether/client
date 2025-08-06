@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -19,6 +20,7 @@ import {
 import type { Session, SessionDetail } from '../services/session';
 
 const MainPage: React.FC = () => {
+  const navigate = useNavigate();
   const [searchValue, setSearchValue] = useState('');
   const [isCreateRoomModalOpen, setIsCreateRoomModalOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -96,9 +98,8 @@ const MainPage: React.FC = () => {
         alert('세션에 참여했습니다!');
       }
 
-      // TODO: 세션 상세 페이지로 이동 (상세 정보와 함께)
-      console.log('세션 상세 정보:', sessionDetail);
-      console.log('참여자 목록:', sessionDetail.participants);
+      // 성공 시 CodeEditorPage로 이동
+      navigate(`/editor/${sessionId}`);
     } catch (error) {
       console.error('세션 참여 에러:', error);
       alert('세션 참여 중 오류가 발생했습니다.');
