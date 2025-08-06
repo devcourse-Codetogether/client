@@ -1,7 +1,6 @@
 import type { HTMLAttributes } from 'react';
 import {
   DocumentCheckIcon,
-  FolderPlusIcon,
   UserGroupIcon,
   UserPlusIcon,
 } from '@heroicons/react/24/solid';
