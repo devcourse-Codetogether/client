@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   MagnifyingGlassIcon,
@@ -10,35 +10,46 @@ import Footer from '../components/layout/Footer';
 import TextField from '../components/common/TextField';
 import RoomCard from '../components/mainpage/RoomCard';
 import Button from '../components/common/Button';
+import Pagination from '../components/common/pagination/Pagination';
 import CreateRoomModal from '../components/mainpage/CreateRoomModal';
 import FilterModal from '../components/mainpage/FilterModal';
 import { useSession } from '../hooks/useSession';
+import { useModals } from '../hooks/useModals';
+import { useSearchFilter } from '../hooks/useSearchFilter';
 
 const MainPage: React.FC = () => {
   const navigate = useNavigate();
-  const { sessionList, loading, error, createRoom, joinRoom } = useSession();
-  const [searchValue, setSearchValue] = useState('');
-  const [isCreateRoomModalOpen, setIsCreateRoomModalOpen] = useState(false);
-  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const {
+    sessionList,
+    loading,
+    loadingMore,
+    error,
+    hasMore,
+    showPagination,
+    currentPage,
+    totalPages,
+    loadMoreSessions,
+    changePage,
+    createRoom,
+    joinRoom,
+  } = useSession();
 
-  const handleSearch = (value: string) => {
-    alert(`검색어: ${value}`);
-  };
+  const {
+    isCreateRoomModalOpen,
+    isFilterModalOpen,
+    openCreateRoomModal,
+    closeCreateRoomModal,
+    openFilterModal,
+    closeFilterModal,
+  } = useModals();
 
-  const handleFilterClick = () => {
-    setIsFilterModalOpen(true);
-  };
-
-  const handleFilterConfirm = (filterData: {
-    mode: string;
-    language: string;
-  }) => {
-    console.log('필터 적용:', filterData);
-    alert(
-      `필터가 적용되었습니다!\n모드: ${filterData.mode}\n언어: ${filterData.language}`,
-    );
-    setIsFilterModalOpen(false);
-  };
+  const {
+    searchValue,
+    filterData,
+    setSearchValue,
+    handleSearch,
+    handleFilterConfirm,
+  } = useSearchFilter();
 
   const handleCreateRoom = async (roomData: {
     title: string;
@@ -48,7 +59,7 @@ const MainPage: React.FC = () => {
     try {
       const result = await createRoom(roomData);
       alert(`새 방이 생성되었습니다!\n방 ID: ${result.id}`);
-      setIsCreateRoomModalOpen(false);
+      closeCreateRoomModal();
     } catch (error) {
       console.error(error);
       alert('방 생성 중 오류가 발생했습니다.');
@@ -62,6 +73,24 @@ const MainPage: React.FC = () => {
     } catch (error) {
       console.error('세션 참여 에러:', error);
       alert('세션 참여 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleLoadMore = async () => {
+    try {
+      await loadMoreSessions();
+    } catch (error) {
+      console.error('더 많은 방 로드 에러:', error);
+      alert('더 많은 방을 불러오는 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handlePageChange = async (page: number) => {
+    try {
+      await changePage(page);
+    } catch (error) {
+      console.error('페이지 변경 에러:', error);
+      alert('페이지를 변경하는 중 오류가 발생했습니다.');
     }
   };
 
@@ -81,7 +110,7 @@ const MainPage: React.FC = () => {
             text="새 방 만들기"
             color="primary"
             className="px-6 py-3 text-base"
-            onClick={() => setIsCreateRoomModalOpen(true)}
+            onClick={openCreateRoomModal}
           />
         </div>
 
@@ -106,7 +135,7 @@ const MainPage: React.FC = () => {
                 icon={<FunnelIcon className="w-4 h-4" />}
                 text="필터"
                 color="light"
-                onClick={handleFilterClick}
+                onClick={openFilterModal}
                 className="text-sm w-full h-full"
               />
             </div>
@@ -141,13 +170,24 @@ const MainPage: React.FC = () => {
             )}
           </div>
 
-          {/* 더 많은 방 보기 */}
+          {/* 더 많은 방 보기 또는 페이지네이션 */}
           <div className="text-center mt-8">
-            <Button
-              text="더 많은 방 보기"
-              color="light"
-              className="hover:text-primary-600 font-medium transition-colors"
-            />
+            {!showPagination ? (
+              <Button
+                text={loadingMore ? '불러오는 중...' : '더 많은 방 보기'}
+                color="light"
+                className="hover:text-primary-600 font-medium transition-colors"
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+              />
+            ) : (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+                className="mt-4"
+              />
+            )}
           </div>
         </div>
       </main>
@@ -155,13 +195,13 @@ const MainPage: React.FC = () => {
 
       <CreateRoomModal
         isOpen={isCreateRoomModalOpen}
-        onClose={() => setIsCreateRoomModalOpen(false)}
+        onClose={closeCreateRoomModal}
         onConfirm={handleCreateRoom}
       />
 
       <FilterModal
         isOpen={isFilterModalOpen}
-        onClose={() => setIsFilterModalOpen(false)}
+        onClose={closeFilterModal}
         onConfirm={handleFilterConfirm}
       />
     </div>

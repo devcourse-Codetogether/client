@@ -23,6 +23,12 @@ export interface Session {
   isEnded: boolean;
 }
 
+export interface SessionListResponse {
+  sessions: Session[];
+  totalCount: number;
+  currentPage: number;
+}
+
 export const createSession = async (data: {
   title: string;
   mode: string;
@@ -35,9 +41,9 @@ export const createSession = async (data: {
 export const getSessionList = async (
   page = 1,
   limit = 20,
-): Promise<Session[]> => {
+): Promise<SessionListResponse> => {
   const res = await api.get(`/sessions?page=${page}&limit=${limit}`);
-  return res.data.sessions;
+  return res.data;
 };
 
 export const joinSession = async (
