@@ -17,7 +17,7 @@ import {
   getSessionList,
   joinSession,
 } from '../services/session';
-import type { Session, SessionDetail } from '../services/session';
+import type { Session } from '../services/session';
 import { useUserStore } from '../stores/useUserStore';
 
 const MainPage: React.FC = () => {
@@ -88,10 +88,8 @@ const MainPage: React.FC = () => {
         return;
       }
 
-      // 세션 참여 API 호출
       await joinSession(accessToken, sessionId);
 
-      // 성공 시 CodeEditorPage로 이동
       navigate(`/editor/${sessionId}`);
     } catch (error) {
       console.error('세션 참여 에러:', error);
