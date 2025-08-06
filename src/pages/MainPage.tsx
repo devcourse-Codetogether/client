@@ -88,18 +88,8 @@ const MainPage: React.FC = () => {
         return;
       }
 
-      // 세션 참여 API 호출 - 상세 정보 받기
-      const sessionDetail: SessionDetail = await joinSession(
-        accessToken,
-        sessionId,
-      );
-
-      // 이미 참여 중인 경우 처리
-      if (sessionDetail.alreadyJoined) {
-        alert('이미 참여 중인 세션입니다.');
-      } else {
-        alert('세션에 참여했습니다!');
-      }
+      // 세션 참여 API 호출
+      await joinSession(accessToken, sessionId);
 
       // 성공 시 CodeEditorPage로 이동
       navigate(`/editor/${sessionId}`);
