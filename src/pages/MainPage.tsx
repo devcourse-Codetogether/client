@@ -18,9 +18,11 @@ import {
   joinSession,
 } from '../services/session';
 import type { Session, SessionDetail } from '../services/session';
+import { useUserStore } from '../stores/useUserStore';
 
 const MainPage: React.FC = () => {
   const navigate = useNavigate();
+  const { accessToken } = useUserStore();
   const [searchValue, setSearchValue] = useState('');
   const [isCreateRoomModalOpen, setIsCreateRoomModalOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -64,13 +66,12 @@ const MainPage: React.FC = () => {
     language: string;
   }) => {
     try {
-      const token = localStorage.getItem('accessToken');
-      if (!token) {
+      if (!accessToken) {
         alert('로그인이 필요합니다.');
         return;
       }
 
-      const result = await createSession(token, roomData);
+      const result = await createSession(accessToken, roomData);
       alert(`새 방이 생성되었습니다!\n방 ID: ${result.id}`);
       setIsCreateRoomModalOpen(false);
       await fetchSessions();
@@ -82,14 +83,16 @@ const MainPage: React.FC = () => {
 
   const handleJoinSession = async (sessionId: number) => {
     try {
-      const token = localStorage.getItem('accessToken');
-      if (!token) {
+      if (!accessToken) {
         alert('로그인이 필요합니다.');
         return;
       }
 
       // 세션 참여 API 호출 - 상세 정보 받기
-      const sessionDetail: SessionDetail = await joinSession(token, sessionId);
+      const sessionDetail: SessionDetail = await joinSession(
+        accessToken,
+        sessionId,
+      );
 
       // 이미 참여 중인 경우 처리
       if (sessionDetail.alreadyJoined) {
