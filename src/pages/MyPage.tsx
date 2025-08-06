@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import CodeTogetherLogo from '../assets/code_together_logo.png';
 import {
   ListBulletIcon,
