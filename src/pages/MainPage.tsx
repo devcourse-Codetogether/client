@@ -18,11 +18,9 @@ import {
   joinSession,
 } from '../services/session';
 import type { Session } from '../services/session';
-import { useUserStore } from '../stores/useUserStore';
 
 const MainPage: React.FC = () => {
   const navigate = useNavigate();
-  const { accessToken } = useUserStore();
   const [searchValue, setSearchValue] = useState('');
   const [isCreateRoomModalOpen, setIsCreateRoomModalOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -66,12 +64,7 @@ const MainPage: React.FC = () => {
     language: string;
   }) => {
     try {
-      if (!accessToken) {
-        alert('로그인이 필요합니다.');
-        return;
-      }
-
-      const result = await createSession(accessToken, roomData);
+      const result = await createSession(roomData);
       alert(`새 방이 생성되었습니다!\n방 ID: ${result.id}`);
       setIsCreateRoomModalOpen(false);
       await fetchSessions();
@@ -83,13 +76,7 @@ const MainPage: React.FC = () => {
 
   const handleJoinSession = async (sessionId: number) => {
     try {
-      if (!accessToken) {
-        alert('로그인이 필요합니다.');
-        return;
-      }
-
-      await joinSession(accessToken, sessionId);
-
+      await joinSession(sessionId);
       navigate(`/editor/${sessionId}`);
     } catch (error) {
       console.error('세션 참여 에러:', error);
