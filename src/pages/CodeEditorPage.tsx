@@ -16,7 +16,7 @@ import {
   TrashIcon,
 } from '@heroicons/react/24/solid';
 import { useLocation } from 'react-router-dom';
-import { postAIQuestion, postCodeReview } from '../api/aiChat';
+import { postAIQuestion, postCodeReview } from '../services/aiChat';
 import { useUserStore } from '../stores/useUserStore';
 
 import * as Y from 'yjs';
@@ -85,26 +85,50 @@ const webFileTree: FileNode[] = [
     name: 'src',
     type: 'folder',
     childrenNode: [
-      {
-        id: '2',
-        name: 'index.html',
-        type: 'file',
-      },
+      { id: '2', name: 'index.html', type: 'file' },
       { id: '3', name: 'style.css', type: 'file' },
       { id: '4', name: 'app.js', type: 'file' },
     ],
   },
 ];
 
-const problemFileTree: FileNode[] = [
-  {
-    id: '1',
-    name: 'solution.py',
-    type: 'file',
-  },
-];
+const getExtensionByLanguage = (language: string): string => {
+  switch (language) {
+    case 'python':
+      return 'py';
+    case 'cpp':
+      return 'cpp';
+    case 'java':
+      return 'java';
+    case 'c':
+      return 'c';
+    case 'javascript':
+    case 'js':
+      return 'js';
+    case 'typescript':
+    case 'ts':
+      return 'ts';
+    default:
+      return 'txt';
+  }
+};
+
+const getFileTree = (mode: string, language: string): FileNode[] => {
+  if (mode === '웹편집') return webFileTree;
+
+  const ext = getExtensionByLanguage(language);
+  return [
+    {
+      id: '1',
+      name: `solution.${ext}`,
+      type: 'file',
+    },
+  ];
+};
 
 export default function CodeEditorPage() {
+  const location = useLocation();
+
   const [isPreviewVisible, setIsPreviewVisible] = useState<boolean>(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [activePanel, setActivePanel] = useState<'chat' | 'ai' | null>(null);
@@ -113,33 +137,12 @@ export default function CodeEditorPage() {
   const cursorListenerRef = useRef<monaco.IDisposable | null>(null);
 
   const username = useUserStore((state) => state.user?.nickname);
+  const userId = useUserStore((state) => state.user?.id);
 
   let lastCursorState: { line: number; column: number } = {
     line: 0,
     column: 0,
   };
-
-  const dummyFileTree: FileNode[] = [
-    {
-      id: '1',
-      name: 'src',
-      type: 'folder',
-      childrenNode: [
-        {
-          id: '2',
-          name: 'index.html',
-          type: 'file',
-        },
-        { id: '3', name: 'style.css', type: 'file' },
-        { id: '4', name: 'app.js', type: 'file' },
-      ],
-    },
-  ];
-  const users = [
-    { id: 1, nickname: '기영', line: 42 },
-    { id: 2, nickname: '수연', line: 13 },
-    { id: 3, nickname: '예람', line: 87 },
-  ];
 
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
   const [aiMessages, setAIMessages] = useState<Message[]>([
@@ -151,11 +154,17 @@ export default function CodeEditorPage() {
     },
   ]);
 
-  const location = useLocation();
-
   // 페이지에서 넘어온 데이터
-  const { roomId, mode, isOwner } = location.state || {};
-  console.log(roomId, mode);
+  const {
+    id: roomId,
+    language,
+    mode,
+    ownerId,
+    participants: users,
+  } = location.state || {};
+
+  const fileTree: FileNode[] = getFileTree(mode, language);
+
   // 모나코, yjs, awareness, socket io
   const monacoRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null); // Monaco 인스턴스
   const socketRef = useRef<Socket | null>(null);
@@ -668,7 +677,7 @@ export default function CodeEditorPage() {
     };
 
     setChatMessages((prev) => [...prev, newMessage]);
-    socketRef.current?.emit('chat', { roomId, newMessage });
+    socketRef.current?.emit('chat', { roomId, newMessage, userId });
   };
 
   const handleSendAIQuestion = async () => {
@@ -763,13 +772,13 @@ export default function CodeEditorPage() {
     <div className="flex flex-col items-center justify-start w-screen h-screen bg-gray-100 dark:bg-black text-black dark:text-white transition-colors min-w-0">
       <Header
         filename={currentFileRef.current}
-        isOwner={isOwner}
+        isOwner={ownerId === userId}
         onToggleDarkMode={handleThemeToggle}
         onSettingClick={() => setSettingModalOpen(true)}
       />
       <main className="flex flex-row h-full w-full min-w-0">
         <Sidebar
-          fileTree={dummyFileTree}
+          fileTree={fileTree}
           users={users}
           className="border-r border-gray-200 dark:border-gray-700"
           onInviteClick={handleInvite}
@@ -778,7 +787,7 @@ export default function CodeEditorPage() {
         />
         <div className="flex flex-col flex-grow shrink min-w-0">
           <SubHeader
-            mode={mode}
+            mode={mode === '문제풀이' ? 'problem' : 'web'}
             showPreview={isPreviewVisible}
             onTogglePreview={() => setIsPreviewVisible((prev) => !prev)}
             onRunCode={handleRun}

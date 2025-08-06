@@ -1,4 +1,4 @@
-import api from '../utils/api';
+import axios from 'axios';
 
 export interface Participant {
   id: number;
@@ -23,20 +23,45 @@ export interface Session {
   isEnded: boolean;
 }
 
-export const createSession = async (data: {
-  title: string;
-  mode: string;
-  language: string;
-}) => {
-  const res = await api.post('/sessions', data);
+export const createSession = async (
+  token: string,
+  data: { title: string; mode: string; language: string },
+) => {
+  const res = await axios.post(
+    `${import.meta.env.VITE_API_BASE_URL}/sessions`,
+    data,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
   return res.data;
 };
 
-export const getSessionList = async (page = 1, limit = 20) => {
-  const res = await api.get(`/sessions?page=${page}&limit=${limit}`);
+export const getSessionList = async (
+  page = 1,
+  limit = 20,
+): Promise<Session[]> => {
+  const res = await axios.get(
+    `${import.meta.env.VITE_API_BASE_URL}/sessions?page=${page}&limit=${limit}`,
+  );
+
   return res.data.sessions;
 };
 
-export const joinSession = async (sessionId: number) => {
-  const res = await api.post(`/sessions/${sessionId}/join`);
+export const joinSession = async (
+  token: string,
+  sessionId: number,
+): Promise<SessionDetail> => {
+  const res = await axios.post(
+    `${import.meta.env.VITE_API_BASE_URL}/sessions/${sessionId}/join`,
+    {},
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+  return res.data;
 };

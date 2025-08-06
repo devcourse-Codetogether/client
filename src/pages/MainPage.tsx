@@ -28,8 +28,6 @@ const MainPage: React.FC = () => {
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [sessionList, setSessionList] = useState<Session[]>([]);
 
-  const navigate = useNavigate();
-
   const fetchSessions = async () => {
     try {
       const data = await getSessionList();
@@ -77,13 +75,9 @@ const MainPage: React.FC = () => {
       alert(`새 방이 생성되었습니다!\n방 ID: ${result.id}`);
       setIsCreateRoomModalOpen(false);
       await fetchSessions();
-      navigate('/editor', {
-        state: {
-          roomId: result.id,
-          mode: roomData.mode,
-          isOwner: true,
-        },
-      });
+
+      // 전체 정보 같이 넘기기
+      navigate(`/editor/${result.id}`, { state: result });
     } catch (error) {
       console.error(error);
       alert('방 생성 중 오류가 발생했습니다.');
@@ -97,9 +91,9 @@ const MainPage: React.FC = () => {
         return;
       }
 
-      await joinSession(accessToken, sessionId);
+      const result = await joinSession(accessToken, sessionId);
 
-      navigate(`/editor/${sessionId}`);
+      navigate(`/editor/${sessionId}`, { state: result });
     } catch (error) {
       console.error('세션 참여 에러:', error);
       alert('세션 참여 중 오류가 발생했습니다.');
