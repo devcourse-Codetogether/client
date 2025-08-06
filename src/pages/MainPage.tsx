@@ -68,20 +68,14 @@ const MainPage: React.FC = () => {
     language: string;
   }) => {
     try {
-      const token = localStorage.getItem('accessToken');
-      if (!token) {
-        alert('로그인이 필요합니다.');
-        return;
-      }
-
-      const result = await createSession(token, roomData);
+      const result = await createSession(roomData);
       alert(`새 방이 생성되었습니다!\n방 ID: ${result.id}`);
       setIsCreateRoomModalOpen(false);
       await fetchSessions();
       navigate('/editor', {
         state: {
           roomId: result.id,
-          type: roomData.mode,
+          mode: roomData.mode,
           isOwner: true,
         },
       });
@@ -94,12 +88,13 @@ const MainPage: React.FC = () => {
   const handleJoinSession = async (sessionId: number) => {
     try {
       const token = localStorage.getItem('accessToken');
+      console.log(token);
       if (!token) {
         alert('로그인이 필요합니다.');
         return;
       }
 
-      await joinSession(token, sessionId);
+      await joinSession(sessionId);
       alert('세션에 참여했습니다!');
       // TODO: 세션 상세 페이지로 이동
       // 임시 navigate

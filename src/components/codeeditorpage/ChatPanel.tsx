@@ -14,6 +14,8 @@ interface ChatPanelProps {
   aiMessages: Message[];
   inputRef?: React.Ref<HTMLInputElement>;
   onSendChat?: () => void;
+  onSendAIQuestion?: () => void;
+  onCodeReview?: () => void;
 }
 
 export default function ChatPanel({
@@ -22,6 +24,8 @@ export default function ChatPanel({
   aiMessages,
   inputRef,
   onSendChat,
+  onSendAIQuestion,
+  onCodeReview,
 }: ChatPanelProps) {
   return (
     <div className="flex-1 p-4 h-full overflow-y-auto text-sm text-gray-800 dark:text-gray-100 flex flex-col justify-between">
@@ -77,7 +81,7 @@ export default function ChatPanel({
             text="코드 리뷰"
             color="secondary"
             className="text-xs text-center px-3 py-1 w-full"
-            onClick={onSendChat}
+            onClick={onCodeReview}
           />
           <div className="flex items-center gap-2">
             <input
@@ -86,14 +90,14 @@ export default function ChatPanel({
               placeholder="질문을 입력하세요"
               className="flex-1 px-4 py-2 rounded-md text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
               onKeyDown={(e) => {
-                if (e.key === 'Enter') onSendChat?.();
+                if (e.key === 'Enter') onSendAIQuestion?.();
               }}
             />
             <Button
               icon={<PaperAirplaneIcon className="w-4 h-4" />}
               color="secondary"
               className="px-3 py-2"
-              onClick={onSendChat}
+              onClick={onSendAIQuestion}
             />
           </div>
         </div>

@@ -15,9 +15,9 @@ import {
   LightBulbIcon,
   TrashIcon,
 } from '@heroicons/react/24/solid';
-import TextField from '../components/common/TextField';
 import { useLocation } from 'react-router-dom';
-import { postAIChat } from '../api/aiChat';
+import { postAIQuestion, postCodeReview } from '../api/aiChat';
+import { useUserStore } from '../stores/useUserStore';
 
 import * as Y from 'yjs';
 import { io, Socket } from 'socket.io-client';
@@ -79,7 +79,32 @@ const modelMap: Record<string, monaco.editor.ITextModel> = {}; // 파일별 Mona
 
 const usercolor = getRandomColor(); // 사용자 커서 색상 지정
 
-export default function CodeEditorPage3() {
+const webFileTree: FileNode[] = [
+  {
+    id: '1',
+    name: 'src',
+    type: 'folder',
+    childrenNode: [
+      {
+        id: '2',
+        name: 'index.html',
+        type: 'file',
+      },
+      { id: '3', name: 'style.css', type: 'file' },
+      { id: '4', name: 'app.js', type: 'file' },
+    ],
+  },
+];
+
+const problemFileTree: FileNode[] = [
+  {
+    id: '1',
+    name: 'solution.py',
+    type: 'file',
+  },
+];
+
+export default function CodeEditorPage() {
   const [isPreviewVisible, setIsPreviewVisible] = useState<boolean>(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [activePanel, setActivePanel] = useState<'chat' | 'ai' | null>(null);
@@ -87,7 +112,7 @@ export default function CodeEditorPage3() {
   const [settingModalOpen, setSettingModalOpen] = useState(false);
   const cursorListenerRef = useRef<monaco.IDisposable | null>(null);
 
-  const username = 'a';
+  const username = useUserStore((state) => state.user?.nickname);
 
   let lastCursorState: { line: number; column: number } = {
     line: 0,
@@ -105,15 +130,8 @@ export default function CodeEditorPage3() {
           name: 'index.html',
           type: 'file',
         },
-        {
-          id: '3',
-          name: 'components',
-          type: 'folder',
-          childrenNode: [
-            { id: '4', name: 'style.css', type: 'file' },
-            { id: '5', name: 'app.js', type: 'file' },
-          ],
-        },
+        { id: '3', name: 'style.css', type: 'file' },
+        { id: '4', name: 'app.js', type: 'file' },
       ],
     },
   ];
@@ -123,20 +141,21 @@ export default function CodeEditorPage3() {
     { id: 3, nickname: '예람', line: 87 },
   ];
 
-  const aiMessages = [
+  const [chatMessages, setChatMessages] = useState<Message[]>([]);
+  const [aiMessages, setAIMessages] = useState<Message[]>([
     {
       nickname: 'AI 도우미',
       time: '',
       content:
         '안녕하세요. AI 도우미입니다. 코드 리뷰를 원하신다면 코드 리뷰 버튼을 눌러주시고, 궁금한 점이 있으시면 채팅으로 자유롭게 물어봐 주세요.',
     },
-  ];
+  ]);
 
   const location = useLocation();
 
   // 페이지에서 넘어온 데이터
   const { roomId, mode, isOwner } = location.state || {};
-  console.log(mode);
+  console.log(roomId, mode);
   // 모나코, yjs, awareness, socket io
   const monacoRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null); // Monaco 인스턴스
   const socketRef = useRef<Socket | null>(null);
@@ -145,8 +164,6 @@ export default function CodeEditorPage3() {
   const containerRef = useRef<HTMLDivElement>(null);
   const currentFileRef = useRef<string>('index.html');
   const [oldFile, setOldFile] = useState<string>('');
-
-  const [messages, setMessages] = useState<Message[]>([]);
 
   // 추가 부분
   useEffect(() => {
@@ -350,18 +367,18 @@ export default function CodeEditorPage3() {
     // 채팅 업데이트
     const handleChatUpdate = (newMessage: Message) => {
       console.log('receivedMessage:', newMessage);
-      setMessages((prev) => [...prev, newMessage]);
+      setChatMessages((prev) => [...prev, newMessage]);
     };
 
     // 채팅 동기화
-    const handleChatSync = (messages: Message[]) => {
-      console.log('동기화 테스트', messages);
-      if (messages.length == 0) {
+    const handleChatSync = (chatmessages: Message[]) => {
+      console.log('동기화 테스트', chatmessages);
+      if (chatmessages.length == 0) {
         console.log('동기화 메시지 빈값');
       }
-      messages.map((message) => {
+      chatmessages.map((message) => {
         console.log(message.content);
-        setMessages((prev) => [...prev, message]);
+        setChatMessages((prev) => [...prev, message]);
       });
     };
 
@@ -638,8 +655,7 @@ export default function CodeEditorPage3() {
     console.log('실행');
   };
 
-  // ✉️ 채팅 메시지 전송 함수
-  const handleSendChat = async () => {
+  const handleSendChat = () => {
     const content = chatInputRef.current?.value;
     if (!content) return;
     chatInputRef.current!.value = '';
@@ -648,38 +664,71 @@ export default function CodeEditorPage3() {
     const newMessage: Message = {
       time: localtime,
       content,
-      nickname: username,
+      nickname: username ?? '',
     };
 
-    setMessages((prev) => [...prev, newMessage]);
+    setChatMessages((prev) => [...prev, newMessage]);
+    socketRef.current?.emit('chat', { roomId, newMessage });
+  };
 
-    if (activePanel === 'chat') {
-      const socket = socketRef.current;
-      if (!socket) return;
-      socket.emit('chat', { roomId, newMessage });
-    } else if (activePanel === 'ai') {
-      try {
-        const response = await postAIChat(roomId, {
-          mode: 'question',
-          content,
-        });
+  const handleSendAIQuestion = async () => {
+    const content = chatInputRef.current?.value;
+    if (!content) return;
+    chatInputRef.current!.value = '';
 
-        const aiMessage: Message = {
+    const localtime = new Date().toLocaleTimeString();
+    setAIMessages((prev) => [
+      ...prev,
+      { time: localtime, content, nickname: username ?? '' },
+    ]);
+
+    try {
+      const answer = await postAIQuestion(roomId, content);
+      setAIMessages((prev) => [
+        ...prev,
+        {
           time: new Date().toLocaleTimeString(),
-          content: response.content ?? 'AI 응답이 없습니다.',
+          content: answer ?? 'AI 응답이 없습니다.',
           nickname: 'AI 도우미',
-        };
+        },
+      ]);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
-        setMessages((prev) => [...prev, aiMessage]);
-      } catch (error) {
-        console.error('AI 요청 실패:', error);
-        const errorMessage: Message = {
+  const handleCodeReview = async () => {
+    const content = monacoRef.current?.getValue() ?? '';
+    if (!content) return;
+
+    const localtime = new Date().toLocaleTimeString();
+    const userMessage: Message = {
+      time: localtime,
+      content: '[코드 리뷰 요청]',
+      nickname: username ?? '',
+    };
+
+    setAIMessages((prev) => [...prev, userMessage]);
+    console.log(content);
+    try {
+      const response = await postCodeReview(roomId, content);
+
+      const aiMessage: Message = {
+        time: new Date().toLocaleTimeString(),
+        content: response.response ?? 'AI 응답이 없습니다.',
+        nickname: 'AI 도우미',
+      };
+
+      setAIMessages((prev) => [...prev, aiMessage]);
+    } catch (err) {
+      setAIMessages((prev) => [
+        ...prev,
+        {
           time: new Date().toLocaleTimeString(),
           content: 'AI 응답을 가져오는 데 실패했습니다.',
           nickname: '시스템',
-        };
-        setMessages((prev) => [...prev, errorMessage]);
-      }
+        },
+      ]);
     }
   };
 
@@ -790,10 +839,12 @@ export default function CodeEditorPage3() {
             />
             <ChatPanel
               activePanel={activePanel}
-              chatMessages={messages}
+              chatMessages={chatMessages}
               aiMessages={aiMessages}
               inputRef={chatInputRef}
               onSendChat={handleSendChat}
+              onSendAIQuestion={handleSendAIQuestion}
+              onCodeReview={handleCodeReview}
             />
           </div>
         )}
