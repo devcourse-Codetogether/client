@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import Sidebar from '../components/codeeditorpage/Sidebar';
 import Header from '../components/codeeditorpage/Header';
 import SubHeader from '../components/codeeditorpage/SubHeader';
@@ -19,6 +19,7 @@ import { useLocation } from 'react-router-dom';
 import { postAIQuestion, postCodeReview } from '../services/aiChat';
 import { executeCode, saveCode } from '../services/code';
 import { useUserStore } from '../stores/useUserStore';
+// import '../utils/monacoWorkers';
 
 import * as Y from 'yjs';
 import { io, Socket } from 'socket.io-client';
@@ -136,6 +137,102 @@ export default function CodeEditorPage() {
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [settingModalOpen, setSettingModalOpen] = useState(false);
   const cursorListenerRef = useRef<monaco.IDisposable | null>(null);
+  const previewRef = useRef<HTMLIFrameElement>(null);
+  const previewDisposablesRef = useRef<monaco.IDisposable[]>([]);
+
+  // 디바운스 도우미
+  const debounce = (fn: (...a: any[]) => void, ms = 150) => {
+    let t: number | undefined;
+    return (...args: any[]) => {
+      if (t) window.clearTimeout(t);
+      t = window.setTimeout(() => fn(...args), ms);
+    };
+  };
+
+  const refreshPreview = useCallback(() => {
+    if (!isPreviewVisible || !previewRef.current) return;
+    const htmlFile = pickByExt('.html') || 'index.html';
+    const cssFile = pickByExt('.css') || 'style.css';
+    const jsFile = pickByExt('.js') || 'app.js';
+    const html = readFile(htmlFile);
+    const css = readFile(cssFile);
+    const js = readFile(jsFile);
+    previewRef.current.srcdoc = buildPreviewHTML(html, css, js);
+  }, [isPreviewVisible]);
+
+  const refreshPreviewDebounced = useMemo(
+    () => debounce(refreshPreview, 180),
+    [refreshPreview],
+  );
+
+  const watchPreviewSources = useCallback(() => {
+    previewDisposablesRef.current.forEach((d) => d.dispose());
+    previewDisposablesRef.current = [];
+
+    const names = Object.keys(modelMap).filter(
+      (n) => n.endsWith('.html') || n.endsWith('.css') || n.endsWith('.js'),
+    );
+
+    names.forEach((name) => {
+      const m = modelMap[name];
+      if (!m || m.isDisposed()) return;
+      const d = m.onDidChangeContent(() => {
+        refreshPreviewDebounced();
+      });
+      previewDisposablesRef.current.push(d);
+    });
+
+    refreshPreviewDebounced();
+  }, [refreshPreviewDebounced]);
+
+  useEffect(() => {
+    refreshPreview();
+  }, [isPreviewVisible, refreshPreview]);
+
+  // 파일 내용 읽기 (modelMap 우선, 없으면 Yjs에서)
+  const readFile = (name: string) => {
+    const model = modelMap[name];
+    if (model && !model.isDisposed()) return model.getValue();
+    const ydoc = ydocs[name];
+    if (ydoc) return ydoc.getText(name).toString();
+    return '';
+  };
+
+  // 파일명 자동 탐색 (트리에서 이름이 달라도 확장자로 찾기)
+  const pickByExt = (ext: string) => {
+    const keys = Object.keys(modelMap).concat(Object.keys(ydocs));
+    // 우선 index.html, style.css, app.js가 있으면 그것부터
+    const preferred = {
+      '.html': ['index.html'],
+      '.css': ['style.css'],
+      '.js': ['app.js'],
+    }[ext];
+
+    if (preferred) {
+      for (const p of preferred) if (keys.includes(p)) return p;
+    }
+    // 없으면 확장자로 아무거나 하나
+    return keys.find((k) => k.endsWith(ext)) ?? '';
+  };
+
+  const buildPreviewHTML = (htmlRaw: string, cssRaw: string, jsRaw: string) => {
+    return `<!doctype html>
+            <html lang="ko">
+            <head>
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width,initial-scale=1" />
+            <title>Preview</title>
+            <style>${cssRaw ?? ''}</style>
+            </head>
+            <body>
+            ${htmlRaw ?? ''}
+            <script>
+            ${jsRaw ?? ''}
+            // NOTE: srcdoc에서는 상대경로 로딩이 안되니, 파일 참조 대신 인라인을 사용합니다.
+            </script>
+            </body>
+            </html>`;
+  };
 
   const username = useUserStore((state) => state.user?.nickname);
   const userId = useUserStore((state) => state.user?.id);
@@ -168,13 +265,26 @@ export default function CodeEditorPage() {
 
   const fileTree: FileNode[] = getFileTree(mode, language);
 
+  // ✅ 초기 파일명 헬퍼
+  const getInitialFileName = (mode?: string, language?: string) => {
+    if (mode === '웹편집') return 'index.html';
+    const ext = getExtensionByLanguage(language ?? '');
+    return `solution.${ext}`;
+  };
+
+  // ✅ 초기 파일명 생성
+  const initialFileName = useMemo(
+    () => getInitialFileName(mode, language),
+    [mode, language],
+  );
+
   // 모나코, yjs, awareness, socket io
   const monacoRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null); // Monaco 인스턴스
   const socketRef = useRef<Socket | null>(null);
   const oldDecorationsRef = useRef<string[]>([]);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const currentFileRef = useRef<string>('index.html');
+  const currentFileRef = useRef<string>(initialFileName);
   const [oldFile, setOldFile] = useState<string>('');
 
   // 추가 부분
@@ -212,7 +322,7 @@ export default function CodeEditorPage() {
       window.removeEventListener('beforeunload', cleanUp);
       setTimeout(() => socket.disconnect(), 50); // 💡 100~200ms 정도 기다려주는 게 일반적
     };
-  }, []);
+  }, [roomId]);
 
   // ✅ 소켓 초기화 함수 (Fast Refresh 대응 없이 단순 생성)
   const initSocket = () => {
@@ -255,8 +365,18 @@ export default function CodeEditorPage() {
     // 에디터 레퍼런스 생성
     monacoRef.current = monaco.editor.create(containerRef.current!, {
       model,
-      theme: 'vs-dark',
+      theme: isDarkMode ? 'vs-dark' : 'vs',
       automaticLayout: true,
+      // 🔽 자동완성/힌트 관련
+      quickSuggestions: { other: true, comments: true, strings: true },
+      suggestOnTriggerCharacters: true,
+      wordBasedSuggestions: 'off',
+      tabCompletion: 'on',
+      parameterHints: { enabled: true },
+      formatOnType: true,
+      formatOnPaste: true,
+      // 편의
+      minimap: { enabled: true },
     });
 
     // 👆 커서 리스너 중복 제거 후 등록
@@ -289,6 +409,7 @@ export default function CodeEditorPage() {
     bindingMap[fileName] = binding;
 
     registerSocketEvents(fileName, socket);
+    watchPreviewSources();
   };
 
   const registerSocketEvents = (fileName: string, socket: Socket) => {
@@ -489,92 +610,95 @@ export default function CodeEditorPage() {
 
   // ✅ 파일 전환 처리
   const switchToFile = (fileName: string) => {
-    // 기존 파일에 있던 awareness 값 비활성화
-    const oldAwareness = awarenessMap[currentFileRef.current];
-    oldAwareness.setLocalState(null);
+    // 이전 파일의 local state 정리
+    const oldAwareness = awarenessMap[oldFile];
+    oldAwareness?.setLocalState(null);
 
     const socket = socketRef.current!;
-
-    // 🔧 이전 바인딩
+    // 이전 바인딩/모델만 정리
     if (bindingMap[oldFile]) {
-      console.log('binding:', oldFile);
       bindingMap[oldFile].destroy();
       delete bindingMap[oldFile];
     }
-
-    // 이전  모델 제거
     if (modelMap[oldFile]) {
-      console.log('model:', oldFile);
       const model = modelMap[oldFile];
       if (!model.isDisposed()) model.dispose();
       delete modelMap[oldFile];
     }
 
-    // ✅ 기존 ydoc, awareness는 무조건 파괴하고 새로 생성 (기존 상태 꼬임 방지)
-    if (ydocs[fileName]) {
-      ydocs[fileName].destroy();
-      delete ydocs[fileName];
-    }
-    if (awarenessMap[fileName]) {
-      awarenessMap[fileName].destroy();
-      delete awarenessMap[fileName];
+    // ✅ 새 파일로 전환: 있으면 재사용, 없으면 생성
+    let ydoc = ydocs[fileName];
+    let awareness = awarenessMap[fileName];
+
+    if (!ydoc) {
+      const created = createYDocAndAwareness(fileName);
+      ydoc = created.ydoc;
+      awareness = created.awareness;
     }
 
-    // ✅ 새 ydoc / awareness 생성 및 저장
-    const { ydoc, awareness } = createYDocAndAwareness(fileName);
-    ydocs[fileName] = ydoc;
-    awarenessMap[fileName] = awareness;
-
-    // 🔧 모델이 없으면 새로 생성
+    // 모델 준비 (없으면 생성)
     const ytext = ydoc.getText(fileName);
     let model = modelMap[fileName];
-    if (!model) model = createMonacoModel(fileName, ytext);
+    if (!model || model.isDisposed()) {
+      model = createMonacoModel(fileName, ytext);
+    }
 
-    // 🖋️ Monaco 에디터 모델 적용
+    // 에디터에 모델 적용
     if (!monacoRef.current || monacoRef.current.getModel() === null) {
-      // 기존 인스턴스가 있다면 먼저 dispose
       if (monacoRef.current) {
-        console.log('기존 코드 모델 삭제');
         monacoRef.current.dispose();
         monacoRef.current = null;
       }
-
       monacoRef.current = monaco.editor.create(containerRef.current!, {
         model,
-        theme: 'vs-dark',
+        theme: isDarkMode ? 'vs-dark' : 'vs',
         automaticLayout: true,
+        // 🔽 자동완성/힌트 관련
+        quickSuggestions: { other: true, comments: true, strings: true },
+        suggestOnTriggerCharacters: true,
+        wordBasedSuggestions: 'off',
+        tabCompletion: 'on',
+        parameterHints: { enabled: true },
+        formatOnType: true,
+        formatOnPaste: true,
+        // 편의
+        minimap: { enabled: true },
       });
     } else {
       monacoRef.current.setModel(model);
     }
 
-    // 👆 커서 리스너 중복 제거 후 등록
+    // 커서 리스너 재등록
     if (cursorListenerRef.current) cursorListenerRef.current.dispose();
     cursorListenerRef.current = monacoRef.current.onDidChangeCursorPosition(
       (e) => {
-        const current = awareness.getLocalState()?.cursor;
+        const current = awareness!.getLocalState()?.cursor;
         const next = { line: e.position.lineNumber, column: e.position.column };
         if (
           !current ||
           current.line !== next.line ||
           current.column !== next.column
         ) {
-          awareness.setLocalStateField('cursor', next);
+          awareness!.setLocalStateField('cursor', next);
         }
       },
     );
 
-    // 🔗 바인딩 연결
+    // 바인딩 연결
     const binding = new MonacoBinding(
       ytext,
       model,
       new Set([monacoRef.current]),
-      awareness,
+      awareness!,
     );
     bindingMap[fileName] = binding;
 
-    // 📌 이벤트 재등록
+    // 이벤트 재등록 + 미리보기 감시 갱신
     registerSocketEvents(fileName, socket);
+    watchPreviewSources();
+
+    // 마지막으로 oldFile 갱신
+    setOldFile(fileName);
   };
 
   /** ✅ Awareness 기반 사용자 커서 표시 */
@@ -655,8 +779,15 @@ export default function CodeEditorPage() {
   const chatInputRef = useRef<HTMLInputElement>(null);
 
   const handleThemeToggle = () => {
-    setIsDarkMode((prev) => !prev);
-    document.documentElement.classList.toggle('dark');
+    setIsDarkMode((prev) => {
+      const next = !prev;
+      document.documentElement.classList.toggle('dark', next);
+      // Monaco 전역 테마 변경
+      monaco.editor.setTheme(next ? 'vs-dark' : 'vs');
+      monacoRef.current?.layout();
+
+      return next;
+    });
   };
 
   const togglePanel = (panel: 'chat' | 'ai') => {
@@ -776,6 +907,7 @@ export default function CodeEditorPage() {
 
     try {
       const output = await executeCode(roomId, language, code, '');
+      console.log(output);
       consoleRef.current?.appendLog(`🟢 실행 결과:\n${output}`);
     } catch (err) {
       console.error('❌ 코드 실행 오류:', err);
@@ -834,7 +966,12 @@ export default function CodeEditorPage() {
                 {mode === 'problem' ? (
                   <ProblemPreview textareaRef={problemRef} />
                 ) : (
-                  <div>HTML 미리보기</div>
+                  <iframe
+                    ref={previewRef}
+                    title="web-preview"
+                    className="w-full h-full border-0"
+                    sandbox="allow-scripts allow-same-origin" // 필요 권한만
+                  />
                 )}
               </div>
             )}
