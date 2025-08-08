@@ -37,7 +37,13 @@ const MainPage: React.FC = () => {
     try {
       const result = await createRoom(roomData);
       closeCreateRoomModal();
-      navigate(`/editor/${result.id}`, { state: result });
+
+      // 방 생성 후 자동으로 입장하기 함수 실행
+      if (result && result.id) {
+        await handleJoinSession(result.id);
+      } else {
+        alert('방이 생성되었지만 입장할 수 없습니다.');
+      }
     } catch (error) {
       console.error(error);
       alert('방 생성 중 오류가 발생했습니다.');
