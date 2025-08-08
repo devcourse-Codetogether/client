@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from 'react';
-import CodeTogetherLogo from '../assets/code_together_logo.png';
+import { useEffect, useState } from 'react';
 import { ListBulletIcon } from '@heroicons/react/24/solid';
 import LogModal from '../components/mypage/LogModal';
 import Button from '../components/common/Button';
