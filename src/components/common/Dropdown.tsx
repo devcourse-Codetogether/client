@@ -9,12 +9,14 @@ interface Option {
 interface DropdownProps extends HTMLAttributes<HTMLDivElement> {
   placeholder: string;
   options: Option[];
+  value?: string;
   onOptionSelect?: (value: string) => void;
 }
 
 export default function Dropdown({
   placeholder,
   options,
+  value,
   onOptionSelect,
 }: DropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -24,13 +26,17 @@ export default function Dropdown({
     setIsOpen(false);
   };
 
+  const selectedLabel = options.find((opt) => opt.value === value)?.label;
+
   return (
     <div className="relative w-full border rounded-md border-gray-300">
       <div
         className="flex items-center justify-between gap-2 px-4 py-3 rounded-md cursor-pointer w-full font-normal text-[16px] leading-[1.5]"
         onClick={() => setIsOpen((prev) => !prev)}
       >
-        <span>{placeholder}</span>
+        <span className={selectedLabel ? 'text-black' : 'text-gray-400'}>
+          {selectedLabel || placeholder}
+        </span>
         <span>
           {isOpen ? (
             <ChevronUpIcon className="w-4 h-4 text-gray-400" />
