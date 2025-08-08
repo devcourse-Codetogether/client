@@ -675,95 +675,93 @@ try { (function(){ ${safeJS} })(); } catch (e) { console.error(e); }
 
   // ✅ 파일 전환 처리
   const switchToFile = (fileName: string) => {
-    // 이전 파일의 local state 정리
-    const oldAwareness = awarenessMap[oldFile];
-    oldAwareness?.setLocalState(null);
+    // 기존 파일에 있던 awareness 값 비활성화
+    const oldAwareness = awarenessMap[currentFileRef.current];
+    oldAwareness.setLocalState(null);
 
     const socket = socketRef.current!;
-    // 이전 바인딩/모델만 정리
+
+    // 🔧 이전 바인딩
     if (bindingMap[oldFile]) {
+      console.log('binding:', oldFile);
       bindingMap[oldFile].destroy();
       delete bindingMap[oldFile];
     }
+
+    // 이전  모델 제거
     if (modelMap[oldFile]) {
+      console.log('model:', oldFile);
       const model = modelMap[oldFile];
       if (!model.isDisposed()) model.dispose();
       delete modelMap[oldFile];
     }
 
-    // ✅ 새 파일로 전환: 있으면 재사용, 없으면 생성
-    let ydoc = ydocs[fileName];
-    let awareness = awarenessMap[fileName];
-
-    if (!ydoc) {
-      const created = createYDocAndAwareness(fileName);
-      ydoc = created.ydoc;
-      awareness = created.awareness;
+    // ✅ 기존 ydoc, awareness는 무조건 파괴하고 새로 생성 (기존 상태 꼬임 방지)
+    if (ydocs[fileName]) {
+      ydocs[fileName].destroy();
+      delete ydocs[fileName];
+    }
+    if (awarenessMap[fileName]) {
+      awarenessMap[fileName].destroy();
+      delete awarenessMap[fileName];
     }
 
-    // 모델 준비 (없으면 생성)
+    // ✅ 새 ydoc / awareness 생성 및 저장
+    const { ydoc, awareness } = createYDocAndAwareness(fileName);
+    ydocs[fileName] = ydoc;
+    awarenessMap[fileName] = awareness;
+
+    // 🔧 모델이 없으면 새로 생성
     const ytext = ydoc.getText(fileName);
     let model = modelMap[fileName];
-    if (!model || model.isDisposed()) {
-      model = createMonacoModel(fileName, ytext);
-    }
+    if (!model) model = createMonacoModel(fileName, ytext);
 
-    // 에디터에 모델 적용
+    // 🖋️ Monaco 에디터 모델 적용
     if (!monacoRef.current || monacoRef.current.getModel() === null) {
+      // 기존 인스턴스가 있다면 먼저 dispose
       if (monacoRef.current) {
+        console.log('기존 코드 모델 삭제');
         monacoRef.current.dispose();
         monacoRef.current = null;
       }
+
       monacoRef.current = monaco.editor.create(containerRef.current!, {
         model,
-        theme: isDarkMode ? 'vs-dark' : 'vs',
+        theme: 'vs-dark',
         automaticLayout: true,
-        // 🔽 자동완성/힌트 관련
-        quickSuggestions: { other: true, comments: true, strings: true },
-        suggestOnTriggerCharacters: true,
-        wordBasedSuggestions: 'off',
-        tabCompletion: 'on',
-        parameterHints: { enabled: true },
-        formatOnType: true,
-        formatOnPaste: true,
-        // 편의
-        minimap: { enabled: true },
       });
     } else {
       monacoRef.current.setModel(model);
     }
 
-    // 커서 리스너 재등록
+    // 👆 커서 리스너 중복 제거 후 등록
     if (cursorListenerRef.current) cursorListenerRef.current.dispose();
     cursorListenerRef.current = monacoRef.current.onDidChangeCursorPosition(
       (e) => {
-        const current = awareness!.getLocalState()?.cursor;
+        const current = awareness.getLocalState()?.cursor;
         const next = { line: e.position.lineNumber, column: e.position.column };
         if (
           !current ||
           current.line !== next.line ||
           current.column !== next.column
         ) {
-          awareness!.setLocalStateField('cursor', next);
+          awareness.setLocalStateField('cursor', next);
         }
       },
     );
 
-    // 바인딩 연결
+    // 🔗 바인딩 연결
     const binding = new MonacoBinding(
       ytext,
       model,
       new Set([monacoRef.current]),
-      awareness!,
+      awareness,
     );
     bindingMap[fileName] = binding;
 
-    // 이벤트 재등록 + 미리보기 감시 갱신
-    registerSocketEvents(fileName, socket);
+    // 📌 이벤트 재등록
     watchPreviewSources();
-
-    // 마지막으로 oldFile 갱신
-    setOldFile(fileName);
+    registerSocketEvents(fileName, socket);
   };
 
   /** ✅ Awareness 기반 사용자 커서 표시 */
