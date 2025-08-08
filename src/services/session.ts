@@ -50,5 +50,6 @@ export const joinSession = async (
   sessionId: number,
 ): Promise<SessionDetail> => {
   const res = await api.post(`/sessions/${sessionId}/join`, {});
+  console.log(res);
   return res.data;
 };
