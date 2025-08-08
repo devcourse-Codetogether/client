@@ -97,7 +97,7 @@ export const useSession = () => {
     try {
       setError(null);
 
-      await joinSession(sessionId);
+      return await joinSession(sessionId);
     } catch (error) {
       console.error('세션 참여 실패:', error);
       throw error;

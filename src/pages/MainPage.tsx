@@ -24,7 +24,6 @@ const MainPage: React.FC = () => {
     loading,
     loadingMore,
     error,
-    hasMore,
     showPagination,
     currentPage,
     totalPages,
@@ -43,13 +42,8 @@ const MainPage: React.FC = () => {
     closeFilterModal,
   } = useModals();
 
-  const {
-    searchValue,
-    filterData,
-    setSearchValue,
-    handleSearch,
-    handleFilterConfirm,
-  } = useSearchFilter();
+  const { searchValue, setSearchValue, handleSearch, handleFilterConfirm } =
+    useSearchFilter();
 
   const handleCreateRoom = async (roomData: {
     title: string;
@@ -60,11 +54,6 @@ const MainPage: React.FC = () => {
       const result = await createRoom(roomData);
       alert(`새 방이 생성되었습니다!\n방 ID: ${result.id}`);
       closeCreateRoomModal();
-      setIsCreateRoomModalOpen(false);
-      await fetchSessions();
-
-      // 전체 정보 같이 넘기기
-      navigate(`/editor/${result.id}`, { state: result });
     } catch (error) {
       console.error(error);
       alert('방 생성 중 오류가 발생했습니다.');
@@ -73,15 +62,8 @@ const MainPage: React.FC = () => {
 
   const handleJoinSession = async (sessionId: number) => {
     try {
-      await joinRoom(sessionId);
-      navigate(`/editor/${sessionId}`);
-      if (!accessToken) {
-        alert('로그인이 필요합니다.');
-        return;
-      }
-
-      const result = await joinSession(accessToken, sessionId);
-
+      const result = await joinRoom(sessionId);
+      console.log(result);
       navigate(`/editor/${sessionId}`, { state: result });
     } catch (error) {
       console.error('세션 참여 에러:', error);
