@@ -23,7 +23,7 @@ const CodeLogItem: React.FC<Props> = ({ log }) => {
         <div className="flex gap-2 text-sm text-gray-700">
           <span className="font-semibold">{log.sender.nickname}</span>
           <span className="text-xs text-gray-400 mt-0.5">
-            {new Date(log.createdAt).toISOString().slice(0, 10)}
+            {new Date(log.createdAt).toLocaleString()}
           </span>
         </div>
         <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded">
