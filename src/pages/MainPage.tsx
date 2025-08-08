@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   MagnifyingGlassIcon,
@@ -10,53 +10,46 @@ import Footer from '../components/layout/Footer';
 import TextField from '../components/common/TextField';
 import RoomCard from '../components/mainpage/RoomCard';
 import Button from '../components/common/Button';
+import Pagination from '../components/common/pagination/Pagination';
 import CreateRoomModal from '../components/mainpage/CreateRoomModal';
 import FilterModal from '../components/mainpage/FilterModal';
-import {
-  createSession,
-  getSessionList,
-  joinSession,
-} from '../services/session';
-import type { Session, SessionDetail } from '../services/session';
+import { useSession } from '../hooks/useSession';
+import { useModals } from '../hooks/useModals';
+import { useSearchFilter } from '../hooks/useSearchFilter';
 
 const MainPage: React.FC = () => {
   const navigate = useNavigate();
-  const [searchValue, setSearchValue] = useState('');
-  const [isCreateRoomModalOpen, setIsCreateRoomModalOpen] = useState(false);
-  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-  const [sessionList, setSessionList] = useState<Session[]>([]);
+  const {
+    sessionList,
+    loading,
+    loadingMore,
+    error,
+    hasMore,
+    showPagination,
+    currentPage,
+    totalPages,
+    loadMoreSessions,
+    changePage,
+    createRoom,
+    joinRoom,
+  } = useSession();
 
-  const fetchSessions = async () => {
-    try {
-      const data = await getSessionList();
-      setSessionList(data);
-    } catch (error) {
-      console.error('세션 목록 조회 실패:', error);
-    }
-  };
+  const {
+    isCreateRoomModalOpen,
+    isFilterModalOpen,
+    openCreateRoomModal,
+    closeCreateRoomModal,
+    openFilterModal,
+    closeFilterModal,
+  } = useModals();
 
-  useEffect(() => {
-    fetchSessions();
-  }, []);
-
-  const handleSearch = (value: string) => {
-    alert(`검색어: ${value}`);
-  };
-
-  const handleFilterClick = () => {
-    setIsFilterModalOpen(true);
-  };
-
-  const handleFilterConfirm = (filterData: {
-    mode: string;
-    language: string;
-  }) => {
-    console.log('필터 적용:', filterData);
-    alert(
-      `필터가 적용되었습니다!\n모드: ${filterData.mode}\n언어: ${filterData.language}`,
-    );
-    setIsFilterModalOpen(false);
-  };
+  const {
+    searchValue,
+    filterData,
+    setSearchValue,
+    handleSearch,
+    handleFilterConfirm,
+  } = useSearchFilter();
 
   const handleCreateRoom = async (roomData: {
     title: string;
@@ -64,16 +57,14 @@ const MainPage: React.FC = () => {
     language: string;
   }) => {
     try {
-      const token = localStorage.getItem('accessToken');
-      if (!token) {
-        alert('로그인이 필요합니다.');
-        return;
-      }
-
-      const result = await createSession(token, roomData);
+      const result = await createRoom(roomData);
       alert(`새 방이 생성되었습니다!\n방 ID: ${result.id}`);
+      closeCreateRoomModal();
       setIsCreateRoomModalOpen(false);
       await fetchSessions();
+
+      // 전체 정보 같이 넘기기
+      navigate(`/editor/${result.id}`, { state: result });
     } catch (error) {
       console.error(error);
       alert('방 생성 중 오류가 발생했습니다.');
@@ -82,27 +73,37 @@ const MainPage: React.FC = () => {
 
   const handleJoinSession = async (sessionId: number) => {
     try {
-      const token = localStorage.getItem('accessToken');
-      if (!token) {
+      await joinRoom(sessionId);
+      navigate(`/editor/${sessionId}`);
+      if (!accessToken) {
         alert('로그인이 필요합니다.');
         return;
       }
 
-      // 세션 참여 API 호출 - 상세 정보 받기
-      const sessionDetail: SessionDetail = await joinSession(token, sessionId);
+      const result = await joinSession(accessToken, sessionId);
 
-      // 이미 참여 중인 경우 처리
-      if (sessionDetail.alreadyJoined) {
-        alert('이미 참여 중인 세션입니다.');
-      } else {
-        alert('세션에 참여했습니다!');
-      }
-
-      // 성공 시 CodeEditorPage로 이동
-      navigate(`/editor/${sessionId}`);
+      navigate(`/editor/${sessionId}`, { state: result });
     } catch (error) {
       console.error('세션 참여 에러:', error);
       alert('세션 참여 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleLoadMore = async () => {
+    try {
+      await loadMoreSessions();
+    } catch (error) {
+      console.error('더 많은 방 로드 에러:', error);
+      alert('더 많은 방을 불러오는 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handlePageChange = async (page: number) => {
+    try {
+      await changePage(page);
+    } catch (error) {
+      console.error('페이지 변경 에러:', error);
+      alert('페이지를 변경하는 중 오류가 발생했습니다.');
     }
   };
 
@@ -122,7 +123,7 @@ const MainPage: React.FC = () => {
             text="새 방 만들기"
             color="primary"
             className="px-6 py-3 text-base"
-            onClick={() => setIsCreateRoomModalOpen(true)}
+            onClick={openCreateRoomModal}
           />
         </div>
 
@@ -147,7 +148,7 @@ const MainPage: React.FC = () => {
                 icon={<FunnelIcon className="w-4 h-4" />}
                 text="필터"
                 color="light"
-                onClick={handleFilterClick}
+                onClick={openFilterModal}
                 className="text-sm w-full h-full"
               />
             </div>
@@ -155,24 +156,51 @@ const MainPage: React.FC = () => {
 
           {/* 동적 방 카드 그리드 */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sessionList.map((session) => (
-              <RoomCard
-                key={session.id}
-                title={session.title}
-                techStack={`</> ${session.language}`}
-                category={session.mode}
-                onJoin={() => handleJoinSession(session.id)}
-              />
-            ))}
+            {loading ? (
+              <div className="col-span-full text-center py-8">
+                <div className="text-gray-600">세션 목록을 불러오는 중...</div>
+              </div>
+            ) : error ? (
+              <div className="col-span-full text-center py-8">
+                <div className="text-red-600">{error}</div>
+              </div>
+            ) : sessionList.length === 0 ? (
+              <div className="col-span-full text-center py-8">
+                <div className="text-gray-600">
+                  현재 활성화된 세션이 없습니다.
+                </div>
+              </div>
+            ) : (
+              sessionList.map((session) => (
+                <RoomCard
+                  key={session.id}
+                  title={session.title}
+                  techStack={session.language}
+                  category={session.mode}
+                  onJoin={() => handleJoinSession(session.id)}
+                />
+              ))
+            )}
           </div>
 
-          {/* 더 많은 방 보기 */}
+          {/* 더 많은 방 보기 또는 페이지네이션 */}
           <div className="text-center mt-8">
-            <Button
-              text="더 많은 방 보기"
-              color="light"
-              className="hover:text-primary-600 font-medium transition-colors"
-            />
+            {!showPagination ? (
+              <Button
+                text={loadingMore ? '불러오는 중...' : '더 많은 방 보기'}
+                color="light"
+                className="hover:text-primary-600 font-medium transition-colors"
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+              />
+            ) : (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+                className="mt-4"
+              />
+            )}
           </div>
         </div>
       </main>
@@ -180,13 +208,13 @@ const MainPage: React.FC = () => {
 
       <CreateRoomModal
         isOpen={isCreateRoomModalOpen}
-        onClose={() => setIsCreateRoomModalOpen(false)}
+        onClose={closeCreateRoomModal}
         onConfirm={handleCreateRoom}
       />
 
       <FilterModal
         isOpen={isFilterModalOpen}
-        onClose={() => setIsFilterModalOpen(false)}
+        onClose={closeFilterModal}
         onConfirm={handleFilterConfirm}
       />
     </div>

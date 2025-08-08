@@ -1,4 +1,5 @@
 import React from 'react';
+import { CodeBracketIcon } from '@heroicons/react/24/outline';
 import Button from '../common/Button';
 import Label from '../common/Label';
 
@@ -21,9 +22,8 @@ const RoomCard: React.FC<RoomCardProps> = ({
 }) => {
   return (
     <div
-      className={`bg-white border border-primary-100 p-6 hover:shadow-md transition-shadow ${className}`}
+      className={`bg-white border border-primary-100 p-6 hover:shadow-md transition-shadow w-[380px] h-[160px] flex flex-col ${className}`}
     >
-      {/* 카테고리 태그 */}
       <div className="flex justify-between items-start pb-4">
         <div className="flex-1">
           <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">
@@ -38,14 +38,13 @@ const RoomCard: React.FC<RoomCardProps> = ({
         </Label>
       </div>
 
-      {/* 기술 스택 */}
-      <div className="flex items-center mb-4">
-        <span className="text-gray-600 text-sm font-medium">{techStack}</span>
-      </div>
+      <div className="flex-1"></div>
 
-      {/* 상태 및 입장 버튼 */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center"></div>
+        <div className="flex items-center">
+          <CodeBracketIcon className="w-4 h-4 text-gray-900 mr-2" />
+          <span className="text-gray-600 text-sm font-medium">{techStack}</span>
+        </div>
         <Button
           text="입장하기"
           color="primary"

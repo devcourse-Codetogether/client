@@ -35,7 +35,7 @@ export default function ConsoleBox({ consoleRef }: ConsoleBoxProps) {
 
   return (
     <div className="flex flex-col py-3 px-3 rounded-xs overflow-hidden">
-      <div className="bg-gray-0 text-gray-900 dark:bg-gray-900 dark:text-gray-100 p-2 font-mono h-64 overflow-y-auto text-sm">
+      <div className="bg-gray-0 text-gray-900 dark:bg-gray-900 dark:text-gray-100 p-2 font-mono h-64 overflow-y-auto text-sm whitespace-pre-wrap">
         {logs.map((line, i) => (
           <div key={i}>{line}</div>
         ))}
