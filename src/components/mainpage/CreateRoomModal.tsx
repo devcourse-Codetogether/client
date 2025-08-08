@@ -116,6 +116,7 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
           <Dropdown
             placeholder="언어를 선택하세요"
             options={languageOptions}
+            selectedValue={language}
             onOptionSelect={setLanguage}
           />
         </div>
