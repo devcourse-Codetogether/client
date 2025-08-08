@@ -8,6 +8,7 @@ import { useUserStore } from '../stores/useUserStore';
 import api from '../utils/api';
 import RoomCard from '../components/mypage/RoomCard';
 import Pagination from '../components/common/pagination/Pagination';
+import logo from '../assets/code_together_logo.png';
 
 interface Room {
   id: number;
@@ -55,6 +56,12 @@ const MyPage = () => {
   return (
     <div className="bg-gray-100 min-h-screen py-10">
       <div className="max-w-6xl mx-auto px-4">
+        <div
+          className="flex items-center cursor-pointer"
+          onClick={() => navigate('/')}
+        >
+          <img src={logo} alt="CodeTogether" className="h-8 w-auto mb-2" />
+        </div>
         {/* 프로필 */}
         <div className="bg-white border border-gray-200 rounded-sm p-6 flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
