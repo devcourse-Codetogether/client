@@ -36,8 +36,8 @@ const MainPage: React.FC = () => {
   }) => {
     try {
       const result = await createRoom(roomData);
-      alert(`새 방이 생성되었습니다!\n방 ID: ${result.id}`);
       closeCreateRoomModal();
+      navigate(`/editor/${result.id}`, { state: result });
     } catch (error) {
       console.error(error);
       alert('방 생성 중 오류가 발생했습니다.');
