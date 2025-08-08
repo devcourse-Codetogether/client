@@ -7,7 +7,7 @@ import { logout } from '../utils/logout';
 import { useUserStore } from '../stores/useUserStore';
 import api from '../utils/api';
 import RoomCard from '../components/mypage/RoomCard';
-import Pagination from '../components/mypage/Pagination';
+import Pagination from '../components/common/pagination/Pagination';
 
 interface Room {
   id: number;
@@ -40,7 +40,10 @@ const MyPage = () => {
     const fetchRooms = async () => {
       try {
         const res = await api.get<Room[]>('/users/me/sessions');
-        setRooms(res.data);
+        const uniqueRooms = Array.from(
+          new Map(res.data.map((room) => [room.id, room])).values(),
+        );
+        setRooms(uniqueRooms);
       } catch (error) {
         console.error('방 목록 조회 실패', error);
       }
@@ -92,9 +95,10 @@ const MyPage = () => {
           </div>
 
           <Pagination
-            totalPages={totalPages}
             currentPage={currentPage}
+            totalPages={totalPages}
             onPageChange={setCurrentPage}
+            className="absolute bottom-4 left-1/2 -translate-x-1/2"
           />
         </div>
       </div>
