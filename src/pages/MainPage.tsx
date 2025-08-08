@@ -24,7 +24,6 @@ const MainPage: React.FC = () => {
     loading,
     loadingMore,
     error,
-    hasMore,
     showPagination,
     currentPage,
     totalPages,
@@ -43,13 +42,8 @@ const MainPage: React.FC = () => {
     closeFilterModal,
   } = useModals();
 
-  const {
-    searchValue,
-    filterData,
-    setSearchValue,
-    handleSearch,
-    handleFilterConfirm,
-  } = useSearchFilter();
+  const { searchValue, setSearchValue, handleSearch, handleFilterConfirm } =
+    useSearchFilter();
 
   const handleCreateRoom = async (roomData: {
     title: string;

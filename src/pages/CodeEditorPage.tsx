@@ -293,7 +293,7 @@ export default function CodeEditorPage() {
 <body>
 ${safeHTML}
 <script>
-try { (function(){ ${safeJS} })(); } catch (e) { console.error(e); }
+${safeJS}
 </script>
 </body>
 </html>`;
@@ -623,27 +623,27 @@ try { (function(){ ${safeJS} })(); } catch (e) { console.error(e); }
       console.log('👤 awareness 업데이트 발생');
 
       console.log('현재 파일:', currentFileRef.current);
-      // if (
-      //   currentCursor &&
-      //   currentCursor.line === lastCursorState.line &&
-      //   currentCursor.column === lastCursorState.column
-      // ) {
-      //   console.log(
-      //     'currentCursor.line:',
-      //     currentCursor.line,
-      //     'currentCursor.column:',
-      //     currentCursor.column,
-      //   );
-      //   console.log(
-      //     'lastCursorState.line:',
-      //     lastCursorState.line,
-      //     'lastCursorState.column:',
-      //     lastCursorState.column,
-      //   );
+      if (
+        currentCursor &&
+        currentCursor.line === lastCursorState.line &&
+        currentCursor.column === lastCursorState.column
+      ) {
+        console.log(
+          'currentCursor.line:',
+          currentCursor.line,
+          'currentCursor.column:',
+          currentCursor.column,
+        );
+        console.log(
+          'lastCursorState.line:',
+          lastCursorState.line,
+          'lastCursorState.column:',
+          lastCursorState.column,
+        );
 
-      //   console.log('변동 없음');
-      //   return;
-      // }
+        console.log('변동 없음');
+        return;
+      }
 
       const update = awarenessProtocol.encodeAwarenessUpdate(
         newAwareness,
@@ -724,11 +724,20 @@ try { (function(){ ${safeJS} })(); } catch (e) { console.error(e); }
         monacoRef.current.dispose();
         monacoRef.current = null;
       }
-
       monacoRef.current = monaco.editor.create(containerRef.current!, {
         model,
-        theme: 'vs-dark',
+        theme: isDarkMode ? 'vs-dark' : 'vs',
         automaticLayout: true,
+        // 🔽 자동완성/힌트 관련
+        quickSuggestions: { other: true, comments: true, strings: true },
+        suggestOnTriggerCharacters: true,
+        wordBasedSuggestions: 'off',
+        tabCompletion: 'on',
+        parameterHints: { enabled: true },
+        formatOnType: true,
+        formatOnPaste: true,
+        // 편의
+        minimap: { enabled: true },
       });
     } else {
       monacoRef.current.setModel(model);
