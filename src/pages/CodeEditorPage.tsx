@@ -19,7 +19,8 @@ import { useLocation } from 'react-router-dom';
 import { postAIQuestion, postCodeReview } from '../services/aiChat';
 import { executeCode, saveCode } from '../services/code';
 import { useUserStore } from '../stores/useUserStore';
-// import '../utils/monacoWorkers';
+import '../utils/monacoWorkers';
+import DOMPurify from 'dompurify';
 
 import * as Y from 'yjs';
 import { io, Socket } from 'socket.io-client';
@@ -215,23 +216,89 @@ export default function CodeEditorPage() {
     return keys.find((k) => k.endsWith(ext)) ?? '';
   };
 
-  const buildPreviewHTML = (htmlRaw: string, cssRaw: string, jsRaw: string) => {
+  const sanitizeHTML = (dirty: string) => {
+    return DOMPurify.sanitize(dirty, {
+      // 기본값으로도 script, on* 제거됨. 그래도 명시적으로 제한해두면 좋음.
+      ALLOWED_TAGS: [
+        'div',
+        'span',
+        'p',
+        'a',
+        'ul',
+        'ol',
+        'li',
+        'h1',
+        'h2',
+        'h3',
+        'h4',
+        'h5',
+        'h6',
+        'strong',
+        'em',
+        'b',
+        'i',
+        'u',
+        'code',
+        'pre',
+        'blockquote',
+        'img',
+        'br',
+        'hr',
+        'table',
+        'thead',
+        'tbody',
+        'tr',
+        'td',
+        'th',
+        'section',
+        'article',
+        'header',
+        'footer',
+        'main',
+        'nav',
+      ],
+      ALLOWED_ATTR: [
+        'href',
+        'src',
+        'alt',
+        'title',
+        'width',
+        'height',
+        'class',
+        'id',
+        'style',
+      ],
+      // 잠재적으로 위험한 URL 스킴 차단 (javascript:, data: 등)
+      ALLOWED_URI_REGEXP:
+        /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
+      // <iframe> 같은 것까지 허용하고 싶지 않으면 FORBID_TAGS에 추가
+      FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed'],
+      // style 허용을 원치 않으면 ALLOWED_ATTR에서 style 빼기
+    });
+  };
+
+  const buildPreviewHTML = (htmlRaw = '', cssRaw = '', jsRaw = '') => {
+    const safeHTML = sanitizeHTML(htmlRaw ?? '');
+    const safeCSS = (cssRaw ?? '').replace(/<\/style>/gi, '<\\/style>');
+    const safeJS = (jsRaw ?? '').replace(/<\/script>/gi, '<\\/script>');
+
     return `<!doctype html>
-            <html lang="ko">
-            <head>
-            <meta charset="utf-8" />
-            <meta name="viewport" content="width=device-width,initial-scale=1" />
-            <title>Preview</title>
-            <style>${cssRaw ?? ''}</style>
-            </head>
-            <body>
-            ${htmlRaw ?? ''}
-            <script>
-            ${jsRaw ?? ''}
-            // NOTE: srcdoc에서는 상대경로 로딩이 안되니, 파일 참조 대신 인라인을 사용합니다.
-            </script>
-            </body>
-            </html>`;
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Preview</title>
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob: https:; font-src data: https:; connect-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none';">
+<style>${safeCSS}</style>
+</head>
+<body>
+${safeHTML}
+<script>
+try { (function(){ ${safeJS} })(); } catch (e) { console.error(e); }
+</script>
+</body>
+</html>`;
   };
 
   const username = useUserStore((state) => state.user?.nickname);
@@ -970,7 +1037,8 @@ export default function CodeEditorPage() {
                     ref={previewRef}
                     title="web-preview"
                     className="w-full h-full border-0"
-                    sandbox="allow-scripts allow-same-origin" // 필요 권한만
+                    sandbox="allow-scripts"
+                    referrerPolicy="no-referrer"
                   />
                 )}
               </div>
