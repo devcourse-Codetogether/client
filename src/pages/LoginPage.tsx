@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import CodeTogetherLogo from '../assets/code_together_logo.png';
 import KakaoLoginLogo from '../assets/kakao_login_medium_wide.png';
 import { CodeBracketIcon, UserGroupIcon } from '@heroicons/react/24/solid';
@@ -11,12 +12,15 @@ const LoginPage = () => {
     window.location.href = KAKAO_AUTH_URL;
   };
 
+  const navigate = useNavigate();
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-primary-100/30 to-secondary-100/30">
       <img
         src={CodeTogetherLogo}
         alt="CodeTogether Logo"
-        className="h-10 mb-4"
+        className="h-10 mb-4 cursor-pointer"
+        onClick={() => navigate('/')}
       />
       <div className="text-sm text-gray-700 mb-8">
         함께 성장하는 개발자 커뮤니티
