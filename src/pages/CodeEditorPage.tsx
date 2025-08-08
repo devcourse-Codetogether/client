@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import Sidebar from '../components/codeeditorpage/Sidebar';
 import Header from '../components/codeeditorpage/Header';
 import SubHeader from '../components/codeeditorpage/SubHeader';
@@ -15,8 +15,12 @@ import {
   LightBulbIcon,
   TrashIcon,
 } from '@heroicons/react/24/solid';
-import TextField from '../components/common/TextField';
 import { useLocation } from 'react-router-dom';
+import { postAIQuestion, postCodeReview } from '../services/aiChat';
+import { executeCode, saveCode } from '../services/code';
+import { useUserStore } from '../stores/useUserStore';
+import '../utils/monacoWorkers';
+import DOMPurify from 'dompurify';
 
 import * as Y from 'yjs';
 import { io, Socket } from 'socket.io-client';
@@ -25,7 +29,7 @@ import * as monaco from 'monaco-editor';
 
 import * as awarenessProtocol from 'y-protocols/awareness.js';
 
-import { getRandomColor, getRandomName } from '../utils/cursor';
+import { getRandomColor } from '../utils/cursor';
 
 // 인터페이스 설정
 interface Message {
@@ -76,71 +80,270 @@ const awarenessMap: Record<string, awarenessProtocol.Awareness> = {}; // 파일�
 const bindingMap: Record<string, MonacoBinding> = {}; // 파일별 MonacoBinding 인스턴스를 저장
 const modelMap: Record<string, monaco.editor.ITextModel> = {}; // 파일별 Monaco 모델 저장
 
-const username = getRandomName(); // 사용자 이름 생성 (나중에 변경해야 함)
 const usercolor = getRandomColor(); // 사용자 커서 색상 지정
 
-export default function CodeEditorPage3() {
+const webFileTree: FileNode[] = [
+  {
+    id: '1',
+    name: 'src',
+    type: 'folder',
+    childrenNode: [
+      { id: '2', name: 'index.html', type: 'file' },
+      { id: '3', name: 'style.css', type: 'file' },
+      { id: '4', name: 'app.js', type: 'file' },
+    ],
+  },
+];
+
+const getExtensionByLanguage = (language: string): string => {
+  switch (language) {
+    case 'python':
+      return 'py';
+    case 'cpp':
+      return 'cpp';
+    case 'java':
+      return 'java';
+    case 'c':
+      return 'c';
+    case 'javascript':
+    case 'js':
+      return 'js';
+    case 'typescript':
+    case 'ts':
+      return 'ts';
+    default:
+      return 'txt';
+  }
+};
+
+const getFileTree = (mode: string, language: string): FileNode[] => {
+  if (mode === '웹편집') return webFileTree;
+
+  const ext = getExtensionByLanguage(language);
+  return [
+    {
+      id: '1',
+      name: `solution.${ext}`,
+      type: 'file',
+    },
+  ];
+};
+
+export default function CodeEditorPage() {
+  const location = useLocation();
+
   const [isPreviewVisible, setIsPreviewVisible] = useState<boolean>(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [activePanel, setActivePanel] = useState<'chat' | 'ai' | null>(null);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [settingModalOpen, setSettingModalOpen] = useState(false);
   const cursorListenerRef = useRef<monaco.IDisposable | null>(null);
+  const previewRef = useRef<HTMLIFrameElement>(null);
+  const previewDisposablesRef = useRef<monaco.IDisposable[]>([]);
+
+  // 디바운스 도우미
+  const debounce = (fn: (...a: any[]) => void, ms = 150) => {
+    let t: number | undefined;
+    return (...args: any[]) => {
+      if (t) window.clearTimeout(t);
+      t = window.setTimeout(() => fn(...args), ms);
+    };
+  };
+
+  const refreshPreview = useCallback(() => {
+    if (!isPreviewVisible || !previewRef.current) return;
+    const htmlFile = pickByExt('.html') || 'index.html';
+    const cssFile = pickByExt('.css') || 'style.css';
+    const jsFile = pickByExt('.js') || 'app.js';
+    const html = readFile(htmlFile);
+    const css = readFile(cssFile);
+    const js = readFile(jsFile);
+    previewRef.current.srcdoc = buildPreviewHTML(html, css, js);
+  }, [isPreviewVisible]);
+
+  const refreshPreviewDebounced = useMemo(
+    () => debounce(refreshPreview, 180),
+    [refreshPreview],
+  );
+
+  const watchPreviewSources = useCallback(() => {
+    previewDisposablesRef.current.forEach((d) => d.dispose());
+    previewDisposablesRef.current = [];
+
+    const names = Object.keys(modelMap).filter(
+      (n) => n.endsWith('.html') || n.endsWith('.css') || n.endsWith('.js'),
+    );
+
+    names.forEach((name) => {
+      const m = modelMap[name];
+      if (!m || m.isDisposed()) return;
+      const d = m.onDidChangeContent(() => {
+        refreshPreviewDebounced();
+      });
+      previewDisposablesRef.current.push(d);
+    });
+
+    refreshPreviewDebounced();
+  }, [refreshPreviewDebounced]);
+
+  useEffect(() => {
+    refreshPreview();
+  }, [isPreviewVisible, refreshPreview]);
+
+  // 파일 내용 읽기 (modelMap 우선, 없으면 Yjs에서)
+  const readFile = (name: string) => {
+    const model = modelMap[name];
+    if (model && !model.isDisposed()) return model.getValue();
+    const ydoc = ydocs[name];
+    if (ydoc) return ydoc.getText(name).toString();
+    return '';
+  };
+
+  // 파일명 자동 탐색 (트리에서 이름이 달라도 확장자로 찾기)
+  const pickByExt = (ext: string) => {
+    const keys = Object.keys(modelMap).concat(Object.keys(ydocs));
+    // 우선 index.html, style.css, app.js가 있으면 그것부터
+    const preferred = {
+      '.html': ['index.html'],
+      '.css': ['style.css'],
+      '.js': ['app.js'],
+    }[ext];
+
+    if (preferred) {
+      for (const p of preferred) if (keys.includes(p)) return p;
+    }
+    // 없으면 확장자로 아무거나 하나
+    return keys.find((k) => k.endsWith(ext)) ?? '';
+  };
+
+  const sanitizeHTML = (dirty: string) => {
+    return DOMPurify.sanitize(dirty, {
+      // 기본값으로도 script, on* 제거됨. 그래도 명시적으로 제한해두면 좋음.
+      ALLOWED_TAGS: [
+        'div',
+        'span',
+        'p',
+        'a',
+        'ul',
+        'ol',
+        'li',
+        'h1',
+        'h2',
+        'h3',
+        'h4',
+        'h5',
+        'h6',
+        'strong',
+        'em',
+        'b',
+        'i',
+        'u',
+        'code',
+        'pre',
+        'blockquote',
+        'img',
+        'br',
+        'hr',
+        'table',
+        'thead',
+        'tbody',
+        'tr',
+        'td',
+        'th',
+        'section',
+        'article',
+        'header',
+        'footer',
+        'main',
+        'nav',
+      ],
+      ALLOWED_ATTR: [
+        'href',
+        'src',
+        'alt',
+        'title',
+        'width',
+        'height',
+        'class',
+        'id',
+        'style',
+      ],
+      // 잠재적으로 위험한 URL 스킴 차단 (javascript:, data: 등)
+      ALLOWED_URI_REGEXP:
+        /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
+      // <iframe> 같은 것까지 허용하고 싶지 않으면 FORBID_TAGS에 추가
+      FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed'],
+      // style 허용을 원치 않으면 ALLOWED_ATTR에서 style 빼기
+    });
+  };
+
+  const buildPreviewHTML = (htmlRaw = '', cssRaw = '', jsRaw = '') => {
+    const safeHTML = sanitizeHTML(htmlRaw ?? '');
+    const safeCSS = (cssRaw ?? '').replace(/<\/style>/gi, '<\\/style>');
+    const safeJS = (jsRaw ?? '').replace(/<\/script>/gi, '<\\/script>');
+
+    return `<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Preview</title>
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob: https:; font-src data: https:; connect-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none';">
+<style>${safeCSS}</style>
+</head>
+<body>
+${safeHTML}
+<script>
+try { (function(){ ${safeJS} })(); } catch (e) { console.error(e); }
+</script>
+</body>
+</html>`;
+  };
+
+  const username = useUserStore((state) => state.user?.nickname);
+  const userId = useUserStore((state) => state.user?.id);
 
   let lastCursorState: { line: number; column: number } = {
     line: 0,
     column: 0,
   };
 
-  const dummyFileTree: FileNode[] = [
-    {
-      id: '1',
-      name: 'src',
-      type: 'folder',
-      childrenNode: [
-        {
-          id: '2',
-          name: 'index.html',
-          type: 'file',
-        },
-        {
-          id: '3',
-          name: 'components',
-          type: 'folder',
-          childrenNode: [
-            { id: '4', name: 'style.css', type: 'file' },
-            { id: '5', name: 'app.js', type: 'file' },
-          ],
-        },
-      ],
-    },
-  ];
-  const users = [
-    { id: 1, nickname: '기영', line: 42 },
-    { id: 2, nickname: '수연', line: 13 },
-    { id: 3, nickname: '예람', line: 87 },
-  ];
-
-  const isOwner = true;
-  const mode = 'problem';
-
-  const aiMessages = [
+  const [chatMessages, setChatMessages] = useState<Message[]>([]);
+  const [aiMessages, setAIMessages] = useState<Message[]>([
     {
       nickname: 'AI 도우미',
-      time: '10:20',
-      content: '이 문제는 DFS 방식으로 해결할 수 있습니다.',
+      time: '',
+      content:
+        '안녕하세요. AI 도우미입니다. 코드 리뷰를 원하신다면 코드 리뷰 버튼을 눌러주시고, 궁금한 점이 있으시면 채팅으로 자유롭게 물어봐 주세요.',
     },
-    {
-      nickname: 'AI 도우미',
-      time: '10:21',
-      content: '입력값은 항상 유효하다고 가정해도 됩니다.',
-    },
-  ];
-
-  const location = useLocation();
+  ]);
 
   // 페이지에서 넘어온 데이터
-  const { roomId } = location.state || {};
+  console.log(location.state);
+  const {
+    id: roomId,
+    language,
+    mode,
+    ownerId,
+    participants: users,
+    title,
+  } = location.state || {};
+
+  const fileTree: FileNode[] = getFileTree(mode, language);
+
+  // ✅ 초기 파일명 헬퍼
+  const getInitialFileName = (mode?: string, language?: string) => {
+    if (mode === '웹편집') return 'index.html';
+    const ext = getExtensionByLanguage(language ?? '');
+    return `solution.${ext}`;
+  };
+
+  // ✅ 초기 파일명 생성
+  const initialFileName = useMemo(
+    () => getInitialFileName(mode, language),
+    [mode, language],
+  );
 
   // 모나코, yjs, awareness, socket io
   const monacoRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null); // Monaco 인스턴스
@@ -148,28 +351,8 @@ export default function CodeEditorPage3() {
   const oldDecorationsRef = useRef<string[]>([]);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const currentFileRef = useRef<string>('index.html');
+  const currentFileRef = useRef<string>(initialFileName);
   const [oldFile, setOldFile] = useState<string>('');
-
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      nickname: '기영',
-      time: '10:15',
-      content: '여기 문제 조건 다시 확인해주세요.',
-    },
-    {
-      nickname: '민수',
-      time: '10:17',
-      content: '네 알겠습니다!',
-    },
-    {
-      nickname: '하린',
-      time: '10:18',
-      content: '힌트는 어디에 있나요?',
-    },
-  ]);
-
-  const [input, setInput] = useState('');
 
   // 추가 부분
   useEffect(() => {
@@ -206,12 +389,10 @@ export default function CodeEditorPage3() {
       window.removeEventListener('beforeunload', cleanUp);
       setTimeout(() => socket.disconnect(), 50); // 💡 100~200ms 정도 기다려주는 게 일반적
     };
-  }, []);
+  }, [roomId]);
 
   // ✅ 소켓 초기화 함수 (Fast Refresh 대응 없이 단순 생성)
   const initSocket = () => {
-    //https://codetogether.store/collab-webpublish
-    //http://localhost:3002/collab-webpublish
     return io('https://codetogether.store/collab-webpublish', {
       transports: ['websocket'],
       withCredentials: true,
@@ -251,8 +432,18 @@ export default function CodeEditorPage3() {
     // 에디터 레퍼런스 생성
     monacoRef.current = monaco.editor.create(containerRef.current!, {
       model,
-      theme: 'vs-dark',
+      theme: isDarkMode ? 'vs-dark' : 'vs',
       automaticLayout: true,
+      // 🔽 자동완성/힌트 관련
+      quickSuggestions: { other: true, comments: true, strings: true },
+      suggestOnTriggerCharacters: true,
+      wordBasedSuggestions: 'off',
+      tabCompletion: 'on',
+      parameterHints: { enabled: true },
+      formatOnType: true,
+      formatOnPaste: true,
+      // 편의
+      minimap: { enabled: true },
     });
 
     // 👆 커서 리스너 중복 제거 후 등록
@@ -285,6 +476,7 @@ export default function CodeEditorPage3() {
     bindingMap[fileName] = binding;
 
     registerSocketEvents(fileName, socket);
+    watchPreviewSources();
   };
 
   const registerSocketEvents = (fileName: string, socket: Socket) => {
@@ -375,18 +567,18 @@ export default function CodeEditorPage3() {
     // 채팅 업데이트
     const handleChatUpdate = (newMessage: Message) => {
       console.log('receivedMessage:', newMessage);
-      setMessages((prev) => [...prev, newMessage]);
+      setChatMessages((prev) => [...prev, newMessage]);
     };
 
     // 채팅 동기화
-    const handleChatSync = (messages: Message[]) => {
-      console.log('동기화 테스트', messages);
-      if (messages.length == 0) {
+    const handleChatSync = (chatmessages: Message[]) => {
+      console.log('동기화 테스트', chatmessages);
+      if (chatmessages.length == 0) {
         console.log('동기화 메시지 빈값');
       }
-      messages.map((message) => {
+      chatmessages.map((message) => {
         console.log(message.content);
-        setMessages((prev) => [...prev, message]);
+        setChatMessages((prev) => [...prev, message]);
       });
     };
 
@@ -485,92 +677,95 @@ export default function CodeEditorPage3() {
 
   // ✅ 파일 전환 처리
   const switchToFile = (fileName: string) => {
-    // 기존 파일에 있던 awareness 값 비활성화
-    const oldAwareness = awarenessMap[currentFileRef.current];
-    oldAwareness.setLocalState(null);
+    // 이전 파일의 local state 정리
+    const oldAwareness = awarenessMap[oldFile];
+    oldAwareness?.setLocalState(null);
 
     const socket = socketRef.current!;
-
-    // 🔧 이전 바인딩
+    // 이전 바인딩/모델만 정리
     if (bindingMap[oldFile]) {
-      console.log('binding:', oldFile);
       bindingMap[oldFile].destroy();
       delete bindingMap[oldFile];
     }
-
-    // 이전  모델 제거
     if (modelMap[oldFile]) {
-      console.log('model:', oldFile);
       const model = modelMap[oldFile];
       if (!model.isDisposed()) model.dispose();
       delete modelMap[oldFile];
     }
 
-    // ✅ 기존 ydoc, awareness는 무조건 파괴하고 새로 생성 (기존 상태 꼬임 방지)
-    if (ydocs[fileName]) {
-      ydocs[fileName].destroy();
-      delete ydocs[fileName];
-    }
-    if (awarenessMap[fileName]) {
-      awarenessMap[fileName].destroy();
-      delete awarenessMap[fileName];
+    // ✅ 새 파일로 전환: 있으면 재사용, 없으면 생성
+    let ydoc = ydocs[fileName];
+    let awareness = awarenessMap[fileName];
+
+    if (!ydoc) {
+      const created = createYDocAndAwareness(fileName);
+      ydoc = created.ydoc;
+      awareness = created.awareness;
     }
 
-    // ✅ 새 ydoc / awareness 생성 및 저장
-    const { ydoc, awareness } = createYDocAndAwareness(fileName);
-    ydocs[fileName] = ydoc;
-    awarenessMap[fileName] = awareness;
-
-    // 🔧 모델이 없으면 새로 생성
+    // 모델 준비 (없으면 생성)
     const ytext = ydoc.getText(fileName);
     let model = modelMap[fileName];
-    if (!model) model = createMonacoModel(fileName, ytext);
+    if (!model || model.isDisposed()) {
+      model = createMonacoModel(fileName, ytext);
+    }
 
-    // 🖋️ Monaco 에디터 모델 적용
+    // 에디터에 모델 적용
     if (!monacoRef.current || monacoRef.current.getModel() === null) {
-      // 기존 인스턴스가 있다면 먼저 dispose
       if (monacoRef.current) {
-        console.log('기존 코드 모델 삭제');
         monacoRef.current.dispose();
         monacoRef.current = null;
       }
-
       monacoRef.current = monaco.editor.create(containerRef.current!, {
         model,
-        theme: 'vs-dark',
+        theme: isDarkMode ? 'vs-dark' : 'vs',
         automaticLayout: true,
+        // 🔽 자동완성/힌트 관련
+        quickSuggestions: { other: true, comments: true, strings: true },
+        suggestOnTriggerCharacters: true,
+        wordBasedSuggestions: 'off',
+        tabCompletion: 'on',
+        parameterHints: { enabled: true },
+        formatOnType: true,
+        formatOnPaste: true,
+        // 편의
+        minimap: { enabled: true },
       });
     } else {
       monacoRef.current.setModel(model);
     }
 
-    // 👆 커서 리스너 중복 제거 후 등록
+    // 커서 리스너 재등록
     if (cursorListenerRef.current) cursorListenerRef.current.dispose();
     cursorListenerRef.current = monacoRef.current.onDidChangeCursorPosition(
       (e) => {
-        const current = awareness.getLocalState()?.cursor;
+        const current = awareness!.getLocalState()?.cursor;
         const next = { line: e.position.lineNumber, column: e.position.column };
         if (
           !current ||
           current.line !== next.line ||
           current.column !== next.column
         ) {
-          awareness.setLocalStateField('cursor', next);
+          awareness!.setLocalStateField('cursor', next);
         }
       },
     );
 
-    // 🔗 바인딩 연결
+    // 바인딩 연결
     const binding = new MonacoBinding(
       ytext,
       model,
       new Set([monacoRef.current]),
-      awareness,
+      awareness!,
     );
     bindingMap[fileName] = binding;
 
-    // 📌 이벤트 재등록
+    // 이벤트 재등록 + 미리보기 감시 갱신
     registerSocketEvents(fileName, socket);
+    watchPreviewSources();
+
+    // 마지막으로 oldFile 갱신
+    setOldFile(fileName);
   };
 
   /** ✅ Awareness 기반 사용자 커서 표시 */
@@ -620,6 +815,8 @@ export default function CodeEditorPage3() {
     if (filename.endsWith('.html')) return 'html';
     if (filename.endsWith('.css')) return 'css';
     if (filename.endsWith('.js')) return 'javascript';
+    if (filename.endsWith('.java')) return 'java';
+    if (filename.endsWith('.py')) return 'python';
     return 'plaintext';
   };
 
@@ -649,8 +846,15 @@ export default function CodeEditorPage3() {
   const chatInputRef = useRef<HTMLInputElement>(null);
 
   const handleThemeToggle = () => {
-    setIsDarkMode((prev) => !prev);
-    document.documentElement.classList.toggle('dark');
+    setIsDarkMode((prev) => {
+      const next = !prev;
+      document.documentElement.classList.toggle('dark', next);
+      // Monaco 전역 테마 변경
+      monaco.editor.setTheme(next ? 'vs-dark' : 'vs');
+      monacoRef.current?.layout();
+
+      return next;
+    });
   };
 
   const togglePanel = (panel: 'chat' | 'ai') => {
@@ -659,30 +863,81 @@ export default function CodeEditorPage3() {
 
   const consoleRef = useRef<ConsoleBoxHandle>(null);
 
-  const handleRun = () => {
-    console.log('실행');
-  };
-
-  // ✉️ 채팅 메시지 전송 함수
   const handleSendChat = () => {
-    console.log('채팅:', chatInputRef.current?.value);
     const content = chatInputRef.current?.value;
-
     if (!content) return;
+    chatInputRef.current!.value = '';
 
-    const userName = username;
     const localtime = new Date().toLocaleTimeString();
     const newMessage: Message = {
       time: localtime,
       content,
-      nickname: userName,
+      nickname: username ?? '',
     };
-    setMessages((prev) => [...prev, newMessage]);
-    setInput('');
-    console.log(input);
-    const socket = socketRef.current;
-    if (!socket) return;
-    socket.emit('chat', { roomId, newMessage });
+
+    setChatMessages((prev) => [...prev, newMessage]);
+    socketRef.current?.emit('chat', { roomId, newMessage, userId });
+  };
+
+  const handleSendAIQuestion = async () => {
+    const content = chatInputRef.current?.value;
+    if (!content) return;
+    chatInputRef.current!.value = '';
+
+    const localtime = new Date().toLocaleTimeString();
+    setAIMessages((prev) => [
+      ...prev,
+      { time: localtime, content, nickname: username ?? '' },
+    ]);
+
+    try {
+      const answer = await postAIQuestion(roomId, content);
+      setAIMessages((prev) => [
+        ...prev,
+        {
+          time: new Date().toLocaleTimeString(),
+          content: answer ?? 'AI 응답이 없습니다.',
+          nickname: 'AI 도우미',
+        },
+      ]);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleCodeReview = async () => {
+    const content = monacoRef.current?.getValue() ?? '';
+    if (!content) return;
+
+    const localtime = new Date().toLocaleTimeString();
+    const userMessage: Message = {
+      time: localtime,
+      content: '[코드 리뷰 요청]',
+      nickname: username ?? '',
+    };
+
+    setAIMessages((prev) => [...prev, userMessage]);
+    console.log(content);
+    try {
+      const response = await postCodeReview(roomId, content);
+
+      const aiMessage: Message = {
+        time: new Date().toLocaleTimeString(),
+        content: response.response ?? 'AI 응답이 없습니다.',
+        nickname: 'AI 도우미',
+      };
+
+      setAIMessages((prev) => [...prev, aiMessage]);
+    } catch (err) {
+      setAIMessages((prev) => [
+        ...prev,
+        {
+          time: new Date().toLocaleTimeString(),
+          content: 'AI 응답을 가져오는 데 실패했습니다.',
+          nickname: '시스템',
+        },
+      ]);
+    }
   };
 
   const handleSelectFile = (file: { fileId: string; filename: string }) => {
@@ -700,53 +955,99 @@ export default function CodeEditorPage3() {
     }
   };
 
+  const handleInvite = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      alert('방 주소가 클립보드에 복사되었습니다!');
+    } catch (err) {
+      console.error('클립보드 복사 실패:', err);
+      alert(
+        '복사에 실패했습니다. 브라우저가 클립보드를 지원하는지 확인하세요.',
+      );
+    }
+  };
+
+  const handleExecuteCode = async () => {
+    if (!roomId || !language || !monacoRef.current) return;
+
+    const code = monacoRef.current.getValue();
+
+    try {
+      const output = await executeCode(roomId, language, code, '');
+      console.log(output);
+      consoleRef.current?.appendLog(`🟢 실행 결과:\n${output}`);
+    } catch (err) {
+      console.error('❌ 코드 실행 오류:', err);
+      consoleRef.current?.appendLog('❌ 코드 실행 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleSaveCode = async () => {
+    if (!roomId || !language || !monacoRef.current) return;
+
+    const code = monacoRef.current.getValue();
+
+    try {
+      await saveCode(roomId, language, code);
+      consoleRef.current?.appendLog('💾 코드가 저장되었습니다.');
+    } catch (err) {
+      console.error('❌ 코드 저장 오류:', err);
+      consoleRef.current?.appendLog('❌ 코드 저장 중 오류가 발생했습니다.');
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-start w-screen h-screen bg-gray-100 dark:bg-black text-black dark:text-white transition-colors min-w-0">
       <Header
-        filename={currentFileRef.current}
-        isOwner={isOwner}
+        filename={title}
+        isOwner={ownerId === userId}
         onToggleDarkMode={handleThemeToggle}
         onSettingClick={() => setSettingModalOpen(true)}
       />
       <main className="flex flex-row h-full w-full min-w-0">
         <Sidebar
-          fileTree={dummyFileTree}
+          fileTree={fileTree}
           users={users}
-          className="border border-gray-200 dark:border-gray-700"
-          onInviteClick={() => setInviteModalOpen(true)}
+          className="border-r border-gray-200 dark:border-gray-700"
+          onInviteClick={handleInvite}
+          onSaveClick={handleSaveCode}
           currentFile={currentFileRef.current}
           onSelectFile={handleSelectFile}
         />
         <div className="flex flex-col flex-grow shrink min-w-0">
           <SubHeader
-            mode={mode}
+            mode={mode === '문제풀이' ? 'problem' : 'web'}
             showPreview={isPreviewVisible}
             onTogglePreview={() => setIsPreviewVisible((prev) => !prev)}
-            onRunCode={handleRun}
+            onRunCode={handleExecuteCode}
           />
-          <div className="flex w-full h-full">
-            <div className={isPreviewVisible ? 'w-1/2' : 'w-full'}>
-              {/* 모나코 에디터 */}
+          <div className="flex w-full flex-1 min-h-0">
+            <div className={`${isPreviewVisible ? 'w-1/2' : 'w-full'} min-h-0`}>
               <div
                 ref={containerRef}
-                style={{ height: '500px', border: '1px solid #ccc' }}
+                className="w-full h-full border border-gray-200 dark:border-gray-700"
               />
             </div>
             {isPreviewVisible && (
-              <div className="w-1/2 h-full bg-gray-0 dark:bg-black p-4 overflow-y-auto">
+              <div className="w-1/2 h-full bg-white dark:bg-black p-4 overflow-y-auto border-l border-gray-200 dark:border-gray-700">
                 {mode === 'problem' ? (
-                  <div className="h-full bg-gray-0 dark:bg-black p-4 overflow-y-auto">
-                    <ProblemPreview textareaRef={problemRef} />
-                  </div>
+                  <ProblemPreview textareaRef={problemRef} />
                 ) : (
-                  <>HTML 미리보기</>
+                  <iframe
+                    ref={previewRef}
+                    title="web-preview"
+                    className="w-full h-full border-0"
+                    sandbox="allow-scripts"
+                    referrerPolicy="no-referrer"
+                  />
                 )}
               </div>
             )}
           </div>
-          <div className="flex flex-row justify-end items-center bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 py-3 px-3 gap-3">
+
+          <div className="flex flex-row justify-end items-center bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-3 px-3 gap-3">
             <ChatBubbleLeftRightIcon
-              className={`w-4 h-4 mr-1 text-sm cursor-pointer ${
+              className={`w-4 h-4 cursor-pointer ${
                 activePanel === 'chat'
                   ? 'text-primary-500'
                   : 'text-gray-700 dark:text-gray-100'
@@ -754,7 +1055,7 @@ export default function CodeEditorPage3() {
               onClick={() => togglePanel('chat')}
             />
             <LightBulbIcon
-              className={`w-4 h-4 mr-1 text-sm cursor-pointer ${
+              className={`w-4 h-4 cursor-pointer ${
                 activePanel === 'ai'
                   ? 'text-secondary-500'
                   : 'text-gray-700 dark:text-gray-100'
@@ -763,14 +1064,15 @@ export default function CodeEditorPage3() {
             />
           </div>
 
-          <div className="flex flex-col bg-gray-100 dark:bg-gray-800">
-            <div className="flex flex-row justify-between items-center bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 py-3 px-3">
-              <div>콘솔</div>
-              <TrashIcon className="w-4 h-4 mr-1 text-gray-700 dark:text-primary-100 text-sm" />
+          <div className="flex flex-col bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex flex-row justify-between items-center py-3 px-3">
+              <div className="text-sm font-medium">콘솔</div>
+              <TrashIcon className="w-4 h-4 text-gray-700 dark:text-primary-100 cursor-pointer" />
             </div>
             <ConsoleBox consoleRef={consoleRef} />
           </div>
         </div>
+
         {activePanel && (
           <div className="w-[320px] h-full bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700 shrink-0 flex flex-col">
             <PanelTabHeader
@@ -781,10 +1083,12 @@ export default function CodeEditorPage3() {
             />
             <ChatPanel
               activePanel={activePanel}
-              chatMessages={messages}
+              chatMessages={chatMessages}
               aiMessages={aiMessages}
               inputRef={chatInputRef}
               onSendChat={handleSendChat}
+              onSendAIQuestion={handleSendAIQuestion}
+              onCodeReview={handleCodeReview}
             />
           </div>
         )}
@@ -793,19 +1097,32 @@ export default function CodeEditorPage3() {
       <Modal
         isOpen={inviteModalOpen}
         onClose={() => setInviteModalOpen(false)}
-        title="팀원 초대하기"
-        confirmText="초대하기"
-        cancelText="취소"
-        onConfirm={() => {
+        title="방 주소 복사"
+        confirmText="복사하기"
+        cancelText="닫기"
+        onConfirm={async () => {
+          try {
+            const url = window.location.href;
+            await navigator.clipboard.writeText(url);
+            alert('방 주소가 클립보드에 복사되었습니다.');
+          } catch (err) {
+            console.error('클립보드 복사 실패:', err);
+            alert(
+              '복사에 실패했습니다. 브라우저가 클립보드를 지원하는지 확인하세요.',
+            );
+          }
           setInviteModalOpen(false);
-          alert('초대 전송');
         }}
         onCancel={() => setInviteModalOpen(false)}
       >
-        <TextField
-          label="이메일 주소"
-          placeholder="초대할 팀원의 이메일을 입력하세요."
-        />
+        <div className="text-sm text-gray-700 dark:text-gray-200">
+          아래 버튼을 누르면 방 주소가 클립보드에 복사됩니다.
+          <br />
+          복사된 주소를 다른 사용자에게 공유하세요.
+          <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-800 border rounded text-xs break-all">
+            {`${window.location.origin}/code/${roomId}`}
+          </div>
+        </div>
       </Modal>
 
       <Modal
@@ -820,7 +1137,7 @@ export default function CodeEditorPage3() {
         }}
         onCancel={() => setSettingModalOpen(false)}
       >
-        <div className="text-sm text-red-500"></div>
+        <div className="text-sm text-red-500" />
       </Modal>
     </div>
   );

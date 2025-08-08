@@ -60,6 +60,11 @@ const MainPage: React.FC = () => {
       const result = await createRoom(roomData);
       alert(`새 방이 생성되었습니다!\n방 ID: ${result.id}`);
       closeCreateRoomModal();
+      setIsCreateRoomModalOpen(false);
+      await fetchSessions();
+
+      // 전체 정보 같이 넘기기
+      navigate(`/editor/${result.id}`, { state: result });
     } catch (error) {
       console.error(error);
       alert('방 생성 중 오류가 발생했습니다.');
@@ -70,6 +75,14 @@ const MainPage: React.FC = () => {
     try {
       await joinRoom(sessionId);
       navigate(`/editor/${sessionId}`);
+      if (!accessToken) {
+        alert('로그인이 필요합니다.');
+        return;
+      }
+
+      const result = await joinSession(accessToken, sessionId);
+
+      navigate(`/editor/${sessionId}`, { state: result });
     } catch (error) {
       console.error('세션 참여 에러:', error);
       alert('세션 참여 중 오류가 발생했습니다.');

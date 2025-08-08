@@ -1,5 +1,8 @@
 import CodeTogetherLogo from '../../assets/code_together_logo.png';
-import { MoonIcon, Cog6ToothIcon } from '@heroicons/react/24/solid';
+import {
+  MoonIcon,
+  ArrowRightStartOnRectangleIcon,
+} from '@heroicons/react/24/solid';
 
 interface HeaderProps {
   filename: string;
@@ -24,16 +27,16 @@ export default function Header({
         <div className="flex flex-row justify-end gap-3 items-center">
           <button
             onClick={onToggleDarkMode}
-            className="p-2 rounded bg-gray-200 dark:bg-gray-700"
+            className="p-2 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 cursor-pointer"
           >
             <MoonIcon className="w-5 h-5 text-sm text-gray-700 dark:text-gray-100" />
           </button>
           {isOwner && (
             <button
-              className="p-2 rounded bg-gray-200 dark:bg-gray-700"
+              className="p-2 rounded bg-error-600 hover:bg-error-700 hover:dark:bg-error-400 cursor-pointer"
               onClick={onSettingClick}
             >
-              <Cog6ToothIcon className="w-5 h-5 text-sm text-gray-700 dark:text-gray-100" />
+              <ArrowRightStartOnRectangleIcon className="w-5 h-5 text-sm text-gray-100" />
             </button>
           )}
         </div>

@@ -54,14 +54,15 @@ export default function SubHeader({
           />
         </div>
       )}
-
-      <Button
-        icon={<PlayIcon className="w-4 h-4" />}
-        text="실행"
-        color="success"
-        className="px-4 py-1 text-sm"
-        onClick={onRunCode}
-      />
+      {mode === 'problem' && (
+        <Button
+          icon={<PlayIcon className="w-4 h-4" />}
+          text="실행"
+          color="success"
+          className="px-4 py-1 text-sm"
+          onClick={onRunCode}
+        />
+      )}
     </div>
   );
 }

@@ -25,6 +25,7 @@ export default function FileTreeNode({
   const [isOpen, setIsOpen] = useState(node.type === 'folder' && hasChildren);
 
   const handleClick = () => {
+    console.log('!!!');
     if (node.type === 'folder') {
       setIsOpen((prev) => !prev);
     } else if (node.type === 'file' && onSelectFile) {
