@@ -288,8 +288,6 @@ export default function CodeEditorPage() {
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Preview</title>
-<meta http-equiv="Content-Security-Policy"
-  content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob: https:; font-src data: https:; connect-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none';">
 <style>${safeCSS}</style>
 </head>
 <body>
@@ -625,27 +623,27 @@ try { (function(){ ${safeJS} })(); } catch (e) { console.error(e); }
       console.log('👤 awareness 업데이트 발생');
 
       console.log('현재 파일:', currentFileRef.current);
-      if (
-        currentCursor &&
-        currentCursor.line === lastCursorState.line &&
-        currentCursor.column === lastCursorState.column
-      ) {
-        console.log(
-          'currentCursor.line:',
-          currentCursor.line,
-          'currentCursor.column:',
-          currentCursor.column,
-        );
-        console.log(
-          'lastCursorState.line:',
-          lastCursorState.line,
-          'lastCursorState.column:',
-          lastCursorState.column,
-        );
+      // if (
+      //   currentCursor &&
+      //   currentCursor.line === lastCursorState.line &&
+      //   currentCursor.column === lastCursorState.column
+      // ) {
+      //   console.log(
+      //     'currentCursor.line:',
+      //     currentCursor.line,
+      //     'currentCursor.column:',
+      //     currentCursor.column,
+      //   );
+      //   console.log(
+      //     'lastCursorState.line:',
+      //     lastCursorState.line,
+      //     'lastCursorState.column:',
+      //     lastCursorState.column,
+      //   );
 
-        console.log('변동 없음');
-        return;
-      }
+      //   console.log('변동 없음');
+      //   return;
+      // }
 
       const update = awarenessProtocol.encodeAwarenessUpdate(
         newAwareness,
@@ -923,10 +921,10 @@ try { (function(){ ${safeJS} })(); } catch (e) { console.error(e); }
 
       const aiMessage: Message = {
         time: new Date().toLocaleTimeString(),
-        content: response.response ?? 'AI 응답이 없습니다.',
+        content: response.answer ?? 'AI 응답이 없습니다.',
         nickname: 'AI 도우미',
       };
-
+      console.log(response);
       setAIMessages((prev) => [...prev, aiMessage]);
     } catch (err) {
       setAIMessages((prev) => [
