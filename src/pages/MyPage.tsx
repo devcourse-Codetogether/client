@@ -57,9 +57,9 @@ const MyPage = () => {
         <div className="bg-white border border-gray-200 rounded-sm p-6 flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
             <img
-              src={CodeTogetherLogo}
+              src={`https://api.dicebear.com/9.x/identicon/svg?seed=${user?.nickname}`}
               alt="프로필 사진"
-              className="w-16 h-16 rounded-full"
+              className="w-12 h-12 rounded-full ml-2"
             />
             <div>
               <h2 className="text-lg font-bold text-gray-800">
