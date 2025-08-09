@@ -1243,12 +1243,12 @@ ${safeJS}
       <Modal
         isOpen={settingModalOpen}
         onClose={() => setSettingModalOpen(false)}
-        title="방 설정"
-        confirmText="방 종료"
+        title="방을 나가시겠습니까?"
+        confirmText="나가기"
         cancelText="취소"
         onConfirm={() => {
           setSettingModalOpen(false);
-          alert('방이 종료되었습니다.');
+          navigate('/');
         }}
         onCancel={() => setSettingModalOpen(false)}
       >

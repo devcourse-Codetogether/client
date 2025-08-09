@@ -20,7 +20,7 @@ export default function Header({
   onLogoClick,
 }: HeaderProps) {
   return (
-    <header className="px-4 py-2 w-screen dark:bg-gray-800">
+    <header className="px-4 py-2 w-full dark:bg-gray-800 border-b-1 border-gray-200 dark:border-gray-600">
       <div className="flex flex-row justify-between items-center">
         <div className="flex flex-row justify-start gap-4 items-center">
           <img
