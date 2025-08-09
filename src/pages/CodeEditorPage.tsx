@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/codeeditorpage/Sidebar';
 import Header from '../components/codeeditorpage/Header';
 import SubHeader from '../components/codeeditorpage/SubHeader';
@@ -131,7 +132,7 @@ const getFileTree = (mode: string, language: string): FileNode[] => {
 
 export default function CodeEditorPage() {
   const location = useLocation();
-
+  const navigate = useNavigate();
   const [isPreviewVisible, setIsPreviewVisible] = useState<boolean>(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [activePanel, setActivePanel] = useState<'chat' | 'ai' | null>(null);
@@ -140,6 +141,17 @@ export default function CodeEditorPage() {
   const cursorListenerRef = useRef<monaco.IDisposable | null>(null);
   const previewRef = useRef<HTMLIFrameElement>(null);
   const previewDisposablesRef = useRef<monaco.IDisposable[]>([]);
+
+  // 페이지에서 넘어온 데이터
+  console.log(location.state);
+  const {
+    id: roomId,
+    language,
+    mode,
+    ownerId,
+    participants: users,
+    title,
+  } = location.state || {};
 
   // 디바운스 도우미
   const debounce = (fn: (...a: any[]) => void, ms = 150) => {
@@ -158,8 +170,14 @@ export default function CodeEditorPage() {
     const html = readFile(htmlFile);
     const css = readFile(cssFile);
     const js = readFile(jsFile);
+    console.log(html, css, js);
     previewRef.current.srcdoc = buildPreviewHTML(html, css, js);
-  }, [isPreviewVisible]);
+
+    if (roomId && language) {
+      const code = monacoRef.current?.getValue();
+      if (code) saveCode(roomId, language, code);
+    }
+  }, [isPreviewVisible, roomId, language]);
 
   const refreshPreviewDebounced = useMemo(
     () => debounce(refreshPreview, 180),
@@ -167,20 +185,27 @@ export default function CodeEditorPage() {
   );
 
   const watchPreviewSources = useCallback(() => {
+    // 기존 구독 해제
     previewDisposablesRef.current.forEach((d) => d.dispose());
     previewDisposablesRef.current = [];
 
-    const names = Object.keys(modelMap).filter(
-      (n) => n.endsWith('.html') || n.endsWith('.css') || n.endsWith('.js'),
-    );
-
-    names.forEach((name) => {
+    // ✅ 모델 변경 구독 (활성 파일/바인딩된 파일)
+    Object.keys(modelMap).forEach((name) => {
       const m = modelMap[name];
       if (!m || m.isDisposed()) return;
-      const d = m.onDidChangeContent(() => {
-        refreshPreviewDebounced();
-      });
+      const d = m.onDidChangeContent(() => refreshPreviewDebounced());
       previewDisposablesRef.current.push(d);
+    });
+
+    // ✅ ydoc 변경도 구독 (비활성 파일 원격 변경)
+    Object.keys(ydocs).forEach((name) => {
+      const ydoc = ydocs[name];
+      const h = () => refreshPreviewDebounced();
+      ydoc.on('update', h);
+      // 간이 disposable
+      previewDisposablesRef.current.push({
+        dispose: () => ydoc.off('update', h),
+      } as any);
     });
 
     refreshPreviewDebounced();
@@ -192,8 +217,10 @@ export default function CodeEditorPage() {
 
   // 파일 내용 읽기 (modelMap 우선, 없으면 Yjs에서)
   const readFile = (name: string) => {
-    const model = modelMap[name];
-    if (model && !model.isDisposed()) return model.getValue();
+    if (name === currentFileRef.current) {
+      const model = modelMap[name];
+      if (model && !model.isDisposed()) return model.getValue();
+    }
     const ydoc = ydocs[name];
     if (ydoc) return ydoc.getText(name).toString();
     return '';
@@ -256,6 +283,13 @@ export default function CodeEditorPage() {
         'footer',
         'main',
         'nav',
+        'button',
+        'input',
+        'label',
+        'form',
+        'select',
+        'option',
+        'textarea',
       ],
       ALLOWED_ATTR: [
         'href',
@@ -317,17 +351,6 @@ ${safeJS}
     },
   ]);
 
-  // 페이지에서 넘어온 데이터
-  console.log(location.state);
-  const {
-    id: roomId,
-    language,
-    mode,
-    ownerId,
-    participants: users,
-    title,
-  } = location.state || {};
-
   const fileTree: FileNode[] = getFileTree(mode, language);
 
   // ✅ 초기 파일명 헬퍼
@@ -342,6 +365,38 @@ ${safeJS}
     () => getInitialFileName(mode, language),
     [mode, language],
   );
+
+  // 파일 리스트 뽑기 (웹편집이면 3개, 아니면 solution.ext 1개)
+  const getInitialFiles = (mode?: string, language?: string) => {
+    if (mode === '웹편집') return ['index.html', 'style.css', 'app.js'];
+    return [getInitialFileName(mode, language)];
+  };
+
+  // 서버에 파일들 등록(ack) → 성공 시 콜백
+  const registerFilesWithAck = (
+    socket: Socket,
+    roomId: string,
+    files: string[],
+    onDone?: () => void,
+  ) => {
+    // 서버 이벤트명이 다를 수 있으니 'register-files'는 서버 명세에 맞춰 조정
+    socket
+      .timeout(3000)
+      .emit('register-files', { roomId, files }, (err: any, ok: boolean) => {
+        if (err) {
+          console.warn('register-files ack timeout or error:', err);
+          // ack가 없어도 뒤이어 sync를 던질 수는 있음
+          onDone?.();
+          return;
+        }
+        if (!ok) {
+          console.warn('register-files rejected by server');
+          onDone?.();
+          return;
+        }
+        onDone?.();
+      });
+  };
 
   // 모나코, yjs, awareness, socket io
   const monacoRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null); // Monaco 인스턴스
@@ -361,14 +416,29 @@ ${safeJS}
 
     socket.on('connect', () => {
       console.log('🔌 Connected to server', socket.id);
-      socket.emit('join', { roomId }); // 방 참가 요청
+      socket.emit('join', { roomId });
     });
 
+    const files = getInitialFiles(mode, language);
+
+    // 1) 서버에 파일 리스트 등록
+    registerFilesWithAck(socket, roomId, files, () => {
+      // 2) 등록되든 말든, 싱크는 먼저 요청해서 문서 상태 받아오기
+      files.forEach((name) => {
+        socket.emit('sync', { roomId, fileName: name });
+      });
+    });
+    console.log(files);
     // 채팅 동기화 요청
     socket.emit('chat-sync', { roomId });
 
     // 초기 파일에 대한 Y.Doc 초기화
     initYDocIfNeeded(currentFileRef.current, socket);
+
+    // 백그라운드 프리로드
+    if (mode === '웹편집') {
+      preloadFiles(['style.css', 'app.js']);
+    }
 
     // ✅ 브라우저 종료 시 사용자 상태 정리
     const cleanUp = () => {
@@ -419,6 +489,11 @@ ${safeJS}
     modelMap[fileName] = model;
     return model;
   };
+
+  // 테스트용 useEffect
+  useEffect(() => {
+    console.log(modelMap);
+  }, [modelMap]);
 
   // ✅ Yjs 초기화 필요 시만 생성
   const initYDocIfNeeded = (fileName: string, socket: Socket) => {
@@ -526,6 +601,12 @@ ${safeJS}
       }
       console.log('Ydoc 동기화:', update);
       Y.applyUpdate(newYdoc, new Uint8Array(update));
+
+      if (!modelMap[fileName]) {
+        const ytext = newYdoc.getText(fileName);
+        const model = createMonacoModel(fileName, ytext);
+        modelMap[fileName] = model;
+      }
     };
 
     // Ydoc 문서 Update
@@ -671,6 +752,34 @@ ${safeJS}
 
     //oldfile 전환
     setOldFile(fileName);
+  };
+
+  const preloadFiles = (fileNames: string[]) => {
+    const socket = socketRef.current!;
+    fileNames.forEach((fileName) => {
+      // 이미 등록돼 있으면 스킵
+      if (ydocs[fileName]) return;
+
+      console.log(`🔄 Preloading file: ${fileName}`);
+
+      // ydoc + awareness 생성
+      const { ydoc, awareness } = createYDocAndAwareness(fileName);
+      ydocs[fileName] = ydoc;
+      awarenessMap[fileName] = awareness;
+
+      // model 생성 (에디터 적용 X)
+      const uri = monaco.Uri.parse(`file:///${fileName}`);
+      monaco.editor.getModel(uri)?.dispose();
+      const model = monaco.editor.createModel(
+        '',
+        getLanguageFromFile(fileName),
+        uri,
+      );
+      modelMap[fileName] = model;
+
+      // 소켓 이벤트 등록 (바인딩 없이)
+      registerSocketEvents(fileName, socket);
+    });
   };
 
   // ✅ 파일 전환 처리
@@ -1008,6 +1117,7 @@ ${safeJS}
         isOwner={ownerId === userId}
         onToggleDarkMode={handleThemeToggle}
         onSettingClick={() => setSettingModalOpen(true)}
+        onLogoClick={() => navigate('/')}
       />
       <main className="flex flex-row h-full w-full min-w-0">
         <Sidebar
@@ -1034,7 +1144,7 @@ ${safeJS}
               />
             </div>
             {isPreviewVisible && (
-              <div className="w-1/2 h-full bg-white dark:bg-black p-4 overflow-y-auto border-l border-gray-200 dark:border-gray-700">
+              <div className="w-1/2 h-full bg-white p-4 overflow-y-auto border-l border-gray-200">
                 {mode === 'problem' ? (
                   <ProblemPreview textareaRef={problemRef} />
                 ) : (

@@ -9,6 +9,7 @@ interface HeaderProps {
   isOwner: boolean;
   onToggleDarkMode: () => void;
   onSettingClick?: () => void;
+  onLogoClick?: () => void;
 }
 
 export default function Header({
@@ -16,12 +17,19 @@ export default function Header({
   isOwner,
   onToggleDarkMode,
   onSettingClick,
+  onLogoClick,
 }: HeaderProps) {
   return (
     <header className="px-4 py-2 w-screen dark:bg-gray-800">
       <div className="flex flex-row justify-between items-center">
         <div className="flex flex-row justify-start gap-4 items-center">
-          <img src={CodeTogetherLogo} width="91px" alt="logo" />
+          <img
+            src={CodeTogetherLogo}
+            width="91px"
+            alt="logo"
+            onClick={onLogoClick}
+            className="cursor-pointer"
+          />
           <div>{filename}</div>
         </div>
         <div className="flex flex-row justify-end gap-3 items-center">
