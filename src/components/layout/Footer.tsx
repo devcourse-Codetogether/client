@@ -1,5 +1,6 @@
 import React from 'react';
 import { CodeBracketIcon } from '@heroicons/react/24/outline';
+import logo from '../../assets/code_together_logo.png';
 
 const Footer: React.FC = () => {
   return (
@@ -10,11 +11,7 @@ const Footer: React.FC = () => {
           {/* 왼쪽 섹션 - 브랜딩 및 소셜 미디어 */}
           <div className="space-y-4">
             <div>
-              <img
-                src="/src/assets/code_together_logo.png"
-                alt="CodeTogether"
-                className="h-8 w-auto mb-2"
-              />
+              <img src={logo} alt="CodeTogether" className="h-8 w-auto mb-2" />
               <p className="text-gray-600 text-sm">
                 개발자들이 함께 성장하는 실시간 협업 플랫폼
               </p>

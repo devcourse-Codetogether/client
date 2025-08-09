@@ -7,7 +7,8 @@ import { logout } from '../utils/logout';
 import { useUserStore } from '../stores/useUserStore';
 import api from '../utils/api';
 import RoomCard from '../components/mypage/RoomCard';
-import Pagination from '../components/mypage/Pagination';
+import Pagination from '../components/common/pagination/Pagination';
+import logo from '../assets/code_together_logo.png';
 import Header from '../components/layout/Header';
 
 interface Room {
@@ -41,7 +42,10 @@ const MyPage = () => {
     const fetchRooms = async () => {
       try {
         const res = await api.get<Room[]>('/users/me/sessions');
-        setRooms(res.data);
+        const uniqueRooms = Array.from(
+          new Map(res.data.map((room) => [room.id, room])).values(),
+        );
+        setRooms(uniqueRooms);
       } catch (error) {
         console.error('방 목록 조회 실패', error);
       }
@@ -54,6 +58,12 @@ const MyPage = () => {
     <div className="bg-gray-100 min-h-screen">
       <Header />
       <div className="max-w-6xl mx-auto px-4 py-10">
+        <div
+          className="flex items-center cursor-pointer"
+          onClick={() => navigate('/')}
+        >
+          <img src={logo} alt="CodeTogether" className="h-8 w-auto mb-2" />
+        </div>
         {/* 프로필 */}
         <div className="bg-white border border-gray-200 rounded-sm p-6 flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
@@ -94,9 +104,10 @@ const MyPage = () => {
           </div>
 
           <Pagination
-            totalPages={totalPages}
             currentPage={currentPage}
+            totalPages={totalPages}
             onPageChange={setCurrentPage}
+            className="absolute bottom-4 left-1/2 -translate-x-1/2"
           />
         </div>
       </div>

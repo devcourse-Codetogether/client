@@ -96,9 +96,9 @@ export const processQueue = (error: unknown, token: string | null = null) => {
 /**
  * 토큰 갱신에 실패했을 때 로그인 상태를 초기화하고 로그인 페이지로 이동시키는 함수
  */
-export const handleRefreshFailure = () => {
+export const handleRefreshFailure = (navigate: (path: string) => void) => {
   processQueue('Token refresh failed', null);
   useUserStore.getState().reset();
   localStorage.removeItem('user-storage');
-  window.location.href = '/login';
+  navigate('/login');
 };
