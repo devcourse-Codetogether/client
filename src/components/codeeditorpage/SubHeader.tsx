@@ -1,9 +1,4 @@
-import {
-  PlayIcon,
-  EyeIcon,
-  CodeBracketIcon,
-  BookOpenIcon,
-} from '@heroicons/react/24/solid';
+import { PlayIcon, EyeIcon, CodeBracketIcon } from '@heroicons/react/24/solid';
 import Button from '../common/Button';
 
 interface SubHeaderProps {
