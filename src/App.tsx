@@ -4,6 +4,7 @@ import LoginPage from './pages/LoginPage';
 import MyPage from './pages/MyPage';
 import KakaoRedirectPage from './pages/KakaoRedirectionPage';
 import CodeEditorPage from './pages/CodeEditorPage';
+import ErrorPage from './pages/ErrorPage';
 
 const router = createBrowserRouter([
   {
@@ -25,6 +26,10 @@ const router = createBrowserRouter([
   {
     path: '/editor/:sessionId',
     element: <CodeEditorPage />,
+  },
+  {
+    path: '*',
+    element: <ErrorPage />,
   },
 ]);
 

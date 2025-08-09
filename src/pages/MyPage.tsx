@@ -9,6 +9,7 @@ import api from '../utils/api';
 import RoomCard from '../components/mypage/RoomCard';
 import Pagination from '../components/common/pagination/Pagination';
 import logo from '../assets/code_together_logo.png';
+import Header from '../components/layout/Header';
 
 interface Room {
   id: number;
@@ -54,8 +55,9 @@ const MyPage = () => {
   }, []);
 
   return (
-    <div className="bg-gray-100 min-h-screen py-10">
-      <div className="max-w-6xl mx-auto px-4">
+    <div className="bg-gray-100 min-h-screen">
+      <Header />
+      <div className="max-w-6xl mx-auto px-4 py-10">
         <div
           className="flex items-center cursor-pointer"
           onClick={() => navigate('/')}

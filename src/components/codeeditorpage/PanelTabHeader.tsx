@@ -40,7 +40,7 @@ export default function PanelTabHeader({
           className="text-sm"
         />
       </div>
-      <ChevronRightIcon className="w-4 h-4" onClick={onClose} />
+      <ChevronRightIcon className="w-4 h-4 cursor-pointer" onClick={onClose} />
     </div>
   );
 }
